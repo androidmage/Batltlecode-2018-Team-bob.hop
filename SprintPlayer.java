@@ -5,11 +5,15 @@ import java.util.ArrayList;
 import bc.*;
 
 public class SprintPlayer {
-	public static Direction[] directions;
-	public static boolean finishedBuilding;
+	public static Direction[] directions = new Direction[8];
+	public static boolean finishedFactories = false;
+	public static boolean finishedRockets = false;
 	public static MapLocation swarmLoc;
 	public static Team myTeam;
 	public static Team opponentTeam;
+	public static PlanetMap planetMap;
+	public static Planet thisPlanet;
+	public static MapLocation landLoc = new MapLocation(Planet.Mars, 10, 10);
 	
 	public static void main(String[] args) {
 
@@ -19,9 +23,20 @@ public class SprintPlayer {
 
      // Connect to the manager, starting the game
      GameController gc = new GameController();
+     
+     // get planet and planet map
+     thisPlanet = gc.planet();
+     planetMap = gc.startingMap(thisPlanet);
 
      // Direction is a normal java enum.
-     directions = Direction.values();
+     directions[0] = Direction.North;
+     directions[1] = Direction.Northeast;
+     directions[2] = Direction.East;
+     directions[3] = Direction.Southeast;
+     directions[4] = Direction.South;
+     directions[5] = Direction.Southwest;
+     directions[6] = Direction.West;
+     directions[7] = Direction.Northwest;
      MapLocation buildLoc = null;
      myTeam = gc.team();
      if (myTeam.equals(Team.Blue)) {
@@ -42,18 +57,17 @@ public class SprintPlayer {
 
      while (true) {
     	 	 int roundNum = (int) gc.round();
-    	 	 System.out.println(gc.researchInfo().getLevel(UnitType.Knight));
          System.out.println("Current round: "+roundNum);
          // VecUnit is a class that you can think of as similar to ArrayList<Unit>, but immutable.
          VecUnit units = gc.myUnits();
          // set initial base
-         if (buildLoc == null && units.size() != 0) {
+         if (roundNum < 10 && buildLoc == null && units.size() != 0) {
         	 	buildLoc = gc.myUnits().get(0).location().mapLocation().add(Direction.South);
          }
          ArrayList<Unit> workers = new ArrayList<Unit>();
          ArrayList<Unit> factories = new ArrayList<Unit>();
          ArrayList<Unit> knights = new ArrayList<Unit>();
-         Planet currentPlanet = Planet.Earth;
+         ArrayList<Unit> rockets = new ArrayList<Unit>();
          for (int i = 0; i < units.size(); i++) {
              Unit unit = units.get(i);
              
@@ -75,7 +89,8 @@ public class SprintPlayer {
              		runRanger();
              		break;
              case Rocket:
-             		runRocket();
+             		rockets.add(unit);
+             		runRocket(gc, unit);
              		break;
              case Worker:
             	 		MapLocation myLoc = unit.location().mapLocation();
@@ -105,16 +120,33 @@ public class SprintPlayer {
  	 		Unit worker = workers.get(i);
  	 		
  	 	
-        	 	if (workers.size() >= buildTeamSize && i < buildTeamSize && (factories.size() < 3 || !finishedBuilding)) {
-        	 		switch (i) {
-        	 		case 0:
-        	 			runBuildSequence(gc, worker, buildLoc, UnitType.Factory, factories.size());
-        	 		case 1:
-        	 			runBuildSequence(gc, worker, buildLoc, UnitType.Factory, factories.size());
-        	 		case 2:
-        	 			runBuildSequence(gc, worker, buildLoc, UnitType.Factory, factories.size());
-        	 		case 3:
-        	 			runBuildSequence(gc, worker, buildLoc, UnitType.Factory, factories.size());
+        	 	if (workers.size() >= buildTeamSize && i < buildTeamSize) {
+        	 		UnitType buildType = null;
+        	 		int size = 0;
+        	 		boolean areBuilding = true;
+        	 		if (factories.size() < 3 || !finishedFactories) {
+        	 			buildType = UnitType.Factory;
+        	 			size = factories.size();
+        	 		} else if (roundNum > 125 && (rockets.size() == 0 || !finishedRockets)) {
+        	 			buildType = UnitType.Rocket;
+        	 			size = rockets.size();
+        	 		} else {
+        	 			areBuilding = false;
+        	 			runIdle(gc, worker);
+        	 		}
+        	 		
+        	 		// if building, run build sequences
+        	 		if (areBuilding) {
+        	 			switch (i) {
+            	 		case 0:
+            	 			runBuildSequence(gc, worker, buildLoc, buildType, size);
+            	 		case 1:
+            	 			runBuildSequence(gc, worker, buildLoc, buildType, size);
+            	 		case 2:
+            	 			runBuildSequence(gc, worker, buildLoc, buildType, size);
+            	 		case 3:
+            	 			runBuildSequence(gc, worker, buildLoc, buildType, size);
+            	 		}
         	 		}
         	 	} else {
         	 		runIdle(gc, worker);
@@ -132,40 +164,51 @@ public class SprintPlayer {
         	 	Unit knight = knights.get(i);
         	 	if (!knight.location().isInGarrison() && !knight.location().isInSpace()) {
         	 		MapLocation myLoc = knight.location().mapLocation();
-            	 	int visionRange = (int) knight.visionRange();
-            	 	VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
-            	 	MapLocation attackLoc = swarmLoc;
-            	 	
-            	 	// if reached target, stop swarming
-        	 		if (swarmLoc != null && myLoc.equals(swarmLoc)) {
-        	 			swarmLoc = null;
+        	 		if (i < 5 && rockets.size() > 0) {
+        	 			MapLocation rocketLoc = rockets.get(0).location().mapLocation();
+        	 			if (myLoc.isAdjacentTo(rocketLoc)) {
+        	 				moveToLoc(gc, knight, rockets.get(0).location().mapLocation());
+        	 			}
+        	 		} else {
+        	 			int visionRange = (int) knight.visionRange();
+                	 	VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
+                	 	MapLocation attackLoc = swarmLoc;
+                	 	
+                	 	// if reached target, stop swarming
+            	 		if (swarmLoc != null && myLoc.equals(swarmLoc)) {
+            	 			swarmLoc = null;
+            	 		}
+            	 		
+                	 	if (enemies.size() > 0) {
+                	 		// find closest enemy
+                	 		Unit closestEnemy = findClosestEnemy(gc, knight, enemies);
+                	 		long dist = myLoc.distanceSquaredTo(closestEnemy.location().mapLocation());
+                	 		
+                	 		// attack closest enemy
+                	 		attackLoc = closestEnemy.location().mapLocation();
+                	 		if (dist == 1 && gc.isAttackReady(knight.id()) && gc.canAttack(knight.id(), closestEnemy.id())) {
+                	 			gc.attack(knight.id(), closestEnemy.id());
+                	 		}
+                	 		
+                	 		if (swarmLoc == null) {
+                	 			swarmLoc = attackLoc;
+                	 		}
+                	 	}
+                	 	if (attackLoc == null) {
+                	 		runIdle(gc, knight);
+                	 	} else {
+                	 		moveToLoc(gc, knight, attackLoc);
+                	 	}
         	 		}
-        	 		
-            	 	if (enemies.size() > 0) {
-            	 		// find closest enemy
-            	 		Unit closestEnemy = findClosestEnemy(gc, knight, enemies);
-            	 		long dist = myLoc.distanceSquaredTo(closestEnemy.location().mapLocation());
-            	 		
-            	 		// attack closest enemy
-            	 		attackLoc = closestEnemy.location().mapLocation();
-            	 		if (dist == 1 && gc.isAttackReady(knight.id()) && gc.canAttack(knight.id(), closestEnemy.id())) {
-            	 			gc.attack(knight.id(), closestEnemy.id());
-            	 		}
-            	 		
-            	 		if (swarmLoc == null) {
-            	 			swarmLoc = attackLoc;
-            	 		}
-            	 	}
-            	 	if (attackLoc == null) {
-            	 		runIdle(gc, knight);
-            	 	} else {
-            	 		moveToLoc(gc, knight, attackLoc);
-            	 	}
         	 	}
          }
          
          // factory code
-         runFactories(gc, factories);
+         if (roundNum > 125 && rockets.size() == 0) {
+        	 	runFactories(gc, factories, 5);
+         } else {
+        	 	runFactories(gc, factories, 1);
+         }
          
          // Submit the actions we've done, and wait for our next turn.
          gc.nextTurn();
@@ -187,7 +230,7 @@ public class SprintPlayer {
  		return closestEnemy;
 	}
 
-	private static void runBuildSequence(GameController gc, Unit worker, MapLocation buildLoc, UnitType buildType, int factoryNum) {
+	private static void runBuildSequence(GameController gc, Unit worker, MapLocation buildLoc, UnitType buildType, int builtNum) {
  		MapLocation myLoc = worker.location().mapLocation();
  		if (myLoc.isAdjacentTo(buildLoc)) {
  			Direction buildDir = myLoc.directionTo(buildLoc);
@@ -195,7 +238,12 @@ public class SprintPlayer {
  			// else if there is a blueprint, work on blueprint
  			if (gc.canBlueprint(worker.id(), buildType, buildDir)) {
  				gc.blueprint(worker.id(), buildType, buildDir);
- 				finishedBuilding = false;
+ 				if (buildType.equals(UnitType.Factory)) {
+ 					finishedFactories = false;
+ 				}
+ 				if (buildType.equals(UnitType.Rocket)) {
+ 					finishedRockets = false;
+ 				}
  			} else if (gc.hasUnitAtLocation(buildLoc)){
  				Unit blueprint = gc.senseUnitAtLocation(buildLoc);
  				// if can build blueprint, then do so
@@ -204,14 +252,24 @@ public class SprintPlayer {
  					gc.build(worker.id(), blueprint.id());
  				}
  				if (blueprint.health() == blueprint.maxHealth()) {
- 					System.out.println("Move to next factory");
- 					MapLocation possibleLoc = findOpenAdjacentSpot(gc, myLoc);
+ 					System.out.println("Move to next building");
+ 					MapLocation possibleLoc = null;
+ 					if (buildType.equals(UnitType.Factory)) {
+ 						possibleLoc = findOpenAdjacentSpot(gc, myLoc);
+ 					} else {
+ 						possibleLoc = findFarAwaySpot(gc, myLoc);
+ 					}
  					if (possibleLoc != null) {
  						buildLoc.setX(possibleLoc.getX());
  						buildLoc.setY(possibleLoc.getY());
  					}
- 					if (factoryNum == 3) {
- 						finishedBuilding = true;
+ 					// stop building factories
+ 					if (builtNum == 3 && buildType.equals(UnitType.Factory)) {
+ 						finishedFactories = true;
+ 					}
+ 					// stop building rockets
+ 					if (builtNum == 1 && buildType.equals(UnitType.Rocket)) {
+ 						finishedRockets = true;
  					}
  				}
  			}
@@ -219,6 +277,23 @@ public class SprintPlayer {
  			// move towards build location
  	 		moveToLoc(gc, worker, buildLoc);
  		}
+	}
+
+	private static MapLocation findFarAwaySpot(GameController gc, MapLocation myLoc) {
+		MapLocation possibleLoc = null;
+		boolean foundOpenSpace = false;
+		int distance = 3;
+		while (!foundOpenSpace && distance < 6) {
+			for (int i = 0; i < directions.length; i++) {
+				MapLocation newLoc = myLoc.addMultiple(directions[i], distance);
+				if (planetMap.onMap(newLoc) && gc.isOccupiable(newLoc) == 1) {
+					possibleLoc = newLoc;
+					foundOpenSpace = true;
+				}
+			}
+			distance++;
+		}
+		return possibleLoc;
 	}
 
 	private static MapLocation findOpenAdjacentSpot(GameController gc, MapLocation myLoc) {
@@ -242,31 +317,111 @@ public class SprintPlayer {
  		Direction targetDir = myLoc.directionTo(targetLoc);
  		
  		// if unit can move to target location then it does
- 		if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), targetDir)) {
- 			gc.moveRobot(unit.id(), targetDir);
+ 		if (gc.isMoveReady(unit.id())) {
+ 			if (gc.canMove(unit.id(), targetDir)) {
+ 				gc.moveRobot(unit.id(), targetDir);
+ 			} else {
+ 				// finds position in directions array
+ 				int position = 0;
+ 				for (int i = 0; i < directions.length; i++) {
+ 					if (directions[i].equals(targetDir)) {
+ 						position = i;
+ 					}
+ 				}
+ 				
+ 				Direction moveDir = null;
+ 				// rotate left to find viable direction
+ 				int counter = 1;
+ 				while (moveDir == null && counter < 4) {
+ 					int dirPos = position - counter;
+ 					if (dirPos < 0) {
+ 						dirPos += 8;
+ 					}
+ 					if (gc.canMove(unit.id(), directions[dirPos])) {
+ 						moveDir = directions[dirPos];
+ 					}
+ 					counter++;
+ 				}
+ 				
+ 				// rotate right to find viable direction
+ 				counter = 1;
+ 				while (moveDir == null && counter < 4) {
+ 					int dirPos = position + counter;
+ 					if (dirPos > 7) {
+ 						dirPos -= 8;
+ 					}
+ 					if (gc.canMove(unit.id(), directions[dirPos])) {
+ 						moveDir = directions[dirPos];
+ 					}
+ 					counter++;
+ 				}
+ 				
+ 				// if position found, move there
+ 				if (moveDir != null) {
+ 					gc.moveRobot(unit.id(), moveDir);
+ 				}
+ 			}
  		}
 	}
 
 	private static void runIdle(GameController gc, Unit unit) {
-		Planet planet = gc.planet();
  		MapLocation myLoc = unit.location().mapLocation();
- 		Direction random = directions[(int) (Math.random() * 8 + 1)];
+ 		Direction random = directions[(int) (Math.random() * 8)];
  		//move randomly
  		moveToLoc(gc, unit, myLoc.add(random));
 	}
 
 
 	private static void produceWorkers(GameController gc, Unit worker) {
-		Planet planet = gc.planet();
- 		Direction random = directions[(int) (Math.random() * 8 + 1)];
+ 		Direction random = directions[(int) (Math.random() * 8)];
  		//replicates worker in random direction
  		if(gc.karbonite() >= 15 && gc.canReplicate(worker.id(), random)) {
  			gc.replicate(worker.id(), random);
  		}
 	}
 
-	private static void runRocket() {
-		// TODO Auto-generated method stub
+	private static void runRocket(GameController gc, Unit rocket) {
+		MapLocation myLoc = rocket.location().mapLocation();
+		VecUnitID garrison = rocket.structureGarrison();
+		if (rocket.rocketIsUsed() == 0) {
+			VecUnit adjacentUnits = gc.senseNearbyUnitsByType(myLoc, 1, UnitType.Knight);
+			if (adjacentUnits.size() > 0) {
+				for (int i = 0; i < adjacentUnits.size(); i++) {
+					Unit knight = adjacentUnits.get(i);
+					if (knight.team().equals(myTeam) && gc.canLoad(rocket.id(), knight.id()) && gc.isMoveReady(knight.id())) {
+						gc.load(rocket.id(), knight.id());
+						System.out.println("Successfully loaded a knight");
+					}
+				}
+			}
+			
+			// decide when to launch rockets
+			findLandLoc(gc);
+			if (gc.canLaunchRocket(rocket.id(), landLoc) && garrison.size() == 8) {
+				gc.launchRocket(rocket.id(), landLoc);
+			}
+		} else {
+			for (int i = 0; i < garrison.size(); i++) {
+				int counter = 0;
+				boolean unloaded = false;
+				while (!unloaded && counter < 8) {
+					if (gc.canUnload(rocket.id(), directions[counter])) {
+						gc.unload(rocket.id(), directions[counter]);
+						unloaded = true;
+					}
+					counter++;
+				}
+			}
+		}
+	}
+
+	private static void findLandLoc(GameController gc) {
+		if (gc.isOccupiable(landLoc) != 1) {
+			landLoc = findFarAwaySpot(gc, landLoc);
+		}
+		if (landLoc == null) {
+			landLoc = new MapLocation(Planet.Mars, (int) (Math.random() * 10), (int) (Math.random() * 10));
+		}
 		
 	}
 
@@ -280,22 +435,17 @@ public class SprintPlayer {
 		
 	}
 
-	private static void runKnight(GameController gc, Unit knight) {
-		if (!knight.location().isInGarrison()) {
-			runIdle(gc, knight);
-		}
-	}
-
 	private static void runHealer() {
 		// TODO Auto-generated method stub
 		
 	}
 
-	private static void runFactories(GameController gc, ArrayList<Unit> factories) {
-		Direction random = directions[(int) (Math.random() * 8 + 1)];
+	private static void runFactories(GameController gc, ArrayList<Unit> factories, int slowDownRate) {
+		Direction random = directions[(int) (Math.random() * 8)];
 		if (factories.size() == 3) {
 			for (Unit factory : factories) {
-				if (gc.canProduceRobot(factory.id(), UnitType.Knight)) {
+				if (gc.canProduceRobot(factory.id(), UnitType.Knight) && (int) (Math.random() * slowDownRate) == 0) {
+					// if no rockets, slow production down
 					gc.produceRobot(factory.id(), UnitType.Knight);
 				}
 				if (gc.canUnload(factory.id(), random)) {
