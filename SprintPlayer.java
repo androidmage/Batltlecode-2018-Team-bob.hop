@@ -55,6 +55,28 @@ public class SprintPlayer {
      gc.queueResearch(UnitType.Rocket);
      gc.queueResearch(UnitType.Worker);
 
+     // karbonite finding stuff
+     
+     //map dimensions
+     int h = (int) planetMap.getHeight();
+     int w = (int) planetMap.getWidth();
+     
+     
+     EarthDeposit[][] karboniteAmts = new EarthDeposit[w][h];
+     //loads matrix of earth deposits that have an earth deposit
+     for(int i = 0; i < w; i++){
+     	for(int j = 0; j < h; j++){
+     		MapLocation loca = new MapLocation(thisPlanet, j, i);
+     		long x = (int) planetMap.initialKarboniteAt(loca);
+     		if(x != 0){
+     			karboniteAmts[i][j] = new EarthDeposit(loca, x);
+     		}
+     		else{
+     			karboniteAmts[i][j] = new EarthDeposit(loca, 0);
+     		}
+     	}
+     }
+     
      while (true) {
     	 	 int roundNum = (int) gc.round();
          System.out.println("Current round: "+roundNum);
@@ -62,7 +84,8 @@ public class SprintPlayer {
          VecUnit units = gc.myUnits();
          // set initial base
          if (roundNum < 10 && buildLoc == null && units.size() != 0) {
-        	 	buildLoc = gc.myUnits().get(0).location().mapLocation().add(Direction.South);
+        	 	MapLocation initialLoc = units.get(0).location().mapLocation();
+        	 	buildLoc = findOpenAdjacentSpot(gc, initialLoc);
          }
          ArrayList<Unit> workers = new ArrayList<Unit>();
          ArrayList<Unit> factories = new ArrayList<Unit>();
@@ -117,7 +140,7 @@ public class SprintPlayer {
          int buildTeamSize = 4;
          // loop through workers
          for (int i = 0; i < workers.size(); i++) {
- 	 		Unit worker = workers.get(i);
+        	 	Unit worker = workers.get(i);
  	 		
  	 	
         	 	if (workers.size() >= buildTeamSize && i < buildTeamSize) {
@@ -149,12 +172,44 @@ public class SprintPlayer {
             	 		}
         	 		}
         	 	} else {
-        	 		runIdle(gc, worker);
         	 		if (workers.size() < 4) {
         	 			produceWorkers(gc, worker);
         	 		}
         	 		if (workers.size() < 10 && factories.size() == 3) {
         	 			produceWorkers(gc, worker);
+        	 		} else {
+        	 		// leon code
+                	 	
+                	 	int m = 0;
+                 	int n = 0;
+                 	MapLocation playerLocation = worker.location().mapLocation();
+                 	for(int a = 0; a < w; a++){
+                 		for(int b = 0; b < h; b++){
+                 			if(gc.round() > 100 && gc.round()%10 == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
+                 				karboniteAmts[a][b].changeCount(gc.karboniteAt(karboniteAmts[a][b].getLoc()));
+                 			}
+                 			if(karboniteAmts[a][b].getCount() != 0){
+                 				if(karboniteAmts[m][n].getValue(playerLocation) > karboniteAmts[a][b].getValue(playerLocation)){
+                 					m = a;
+                 					n = b;
+                 				}
+                 			}
+                 		}
+                 	}
+                
+                 	
+                 	
+                 	if(karboniteAmts[m][n].getLoc().equals(worker.location().mapLocation())){
+                 		if(gc.canHarvest(worker.id(), Direction.Center)){
+                 			System.out.println("Harvested!" + gc.karbonite() + " " + gc.karboniteAt(karboniteAmts[m][n].getLoc()));
+                 			gc.harvest(worker.id(), Direction.Center);
+                 			karboniteAmts[m][n].changeCount(gc.karboniteAt(karboniteAmts[m][n].getLoc()));
+                 		}
+                 	}
+            
+                 	else{
+                 		moveToLoc(gc, worker, karboniteAmts[m][n].getLoc());
+                 	}
         	 		}
         	 	}
          }
@@ -302,7 +357,7 @@ public class SprintPlayer {
 		int counter = 0;
 		while (!dirFound && counter < 8) {
 			MapLocation possibleLoc = myLoc.add(directions[counter]);
-			if (gc.isOccupiable(possibleLoc) == 1) {
+			if (planetMap.onMap(possibleLoc) && gc.isOccupiable(possibleLoc) == 1) {
 				dirFound = true;
 				returnLoc = possibleLoc;
 			}
