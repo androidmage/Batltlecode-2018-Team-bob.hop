@@ -471,7 +471,7 @@ public class SprintPlayer {
 	}
 
 	private static void findLandLoc(GameController gc) {
-		if (gc.isOccupiable(landLoc) != 1) {
+		if (planetMap.onMap(landLoc) && gc.isOccupiable(landLoc) != 1) {
 			landLoc = findFarAwaySpot(gc, landLoc);
 		}
 		if (landLoc == null) {
