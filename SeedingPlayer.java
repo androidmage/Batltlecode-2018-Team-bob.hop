@@ -106,7 +106,7 @@ public class SeedingPlayer {
              		knights.add(unit);
              		break;
              case Mage:
-             		runMage();
+			mages.add(unit);
              		break;
              case Ranger:
              		runRanger();
@@ -257,6 +257,9 @@ public class SeedingPlayer {
         	 		}
         	 	}
          }
+	     
+	 runMage(mages, rockets, gc);
+
          
          // factory code
          if (roundNum > 125 && rockets.size() == 0) {
@@ -485,9 +488,57 @@ public class SeedingPlayer {
 		
 	}
 
-	private static void runMage() {
-		// TODO Auto-generated method stub
-		
+	private static void runMage(ArrayList<Unit> mages, ArrayList<Unit> rockets, GameController gc) {
+		// TODO basically copy-pasted from knight code
+		for (int i = 0; i < mages.size(); i++) {
+
+			Unit mage = mages.get(i);
+
+			if (!mage.location().isInGarrison() && !mage.location().isInSpace()) {
+
+				MapLocation myLoc = mage.location().mapLocation();
+
+				if (i < 5 && rockets.size() > 0) {
+					MapLocation rocketLoc = rockets.get(0).location().mapLocation();
+					if (myLoc.isAdjacentTo(rocketLoc)) {
+						moveToLoc(gc, mage, rockets.get(0).location().mapLocation());
+					}
+				} else {
+					int visionRange = (int) mage.visionRange();
+					VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
+					MapLocation attackLoc = swarmLoc;
+
+					// if reached target, stop swarming
+					if (swarmLoc != null && myLoc.equals(swarmLoc)) {
+						swarmLoc = null;
+					}
+
+					if (enemies.size() > 0) {
+						// find closest enemy
+						Unit closestEnemy = findClosestEnemy(gc, mage, enemies);
+						long dist = myLoc.distanceSquaredTo(closestEnemy.location().mapLocation());
+
+						// attack closest enemy
+						attackLoc = closestEnemy.location().mapLocation();
+						if (dist <= mage.attackRange()
+								&& gc.isAttackReady(mage.id())
+								&& gc.canAttack(mage.id(), closestEnemy.id())) {
+							gc.attack(mage.id(), closestEnemy.id());
+						}
+
+						if (swarmLoc == null) {
+							swarmLoc = attackLoc;
+						}
+
+					}
+					if (attackLoc == null) {
+						runIdle(gc, mage);
+					} else {
+						moveToLoc(gc, mage, attackLoc);
+					}
+				}
+			}
+		}
 	}
 
 	private static void runHealer() {
@@ -501,7 +552,12 @@ public class SeedingPlayer {
 			for (Unit factory : factories) {
 				if (gc.canProduceRobot(factory.id(), UnitType.Knight) && (int) (Math.random() * slowDownRate) == 0) {
 					// if no rockets, slow production down
-					gc.produceRobot(factory.id(), UnitType.Knight);
+					if ( knightNum != 0 && mageNum < knightNum / 3 ) {
+						gc.produceRobot(factory.id(), UnitType.Mage);
+					}
+					else {
+						gc.produceRobot(factory.id(), UnitType.Knight);
+					}
 				}
 				if (gc.canUnload(factory.id(), random)) {
 					gc.unload(factory.id(), random);
