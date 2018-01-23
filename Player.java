@@ -7,6 +7,8 @@ import bc.*;
 
 public class Player {
 	public static Direction[] directions = new Direction[8];
+	public static boolean finishedFactories = false;
+	public static boolean finishedRockets = false;
 	public static MapLocation swarmLoc;
 	public static Team myTeam;
 	public static Team opponentTeam;
@@ -14,22 +16,7 @@ public class Player {
 	public static Planet thisPlanet;
 	public static PlanetMap marsMap;
 	public static MapLocation landLoc = new MapLocation(Planet.Mars, 1, 1);
-	public static int roundNum;
-	
-	// worker static variables
-	public static MapLocation buildLoc = null;
 	public static int buildTeamSize;
-	public static boolean finishedFactories = false;
-	public static boolean finishedRockets = false;
-	public static EarthDeposit[][] karboniteAmts;
-	
-	// Arraylists for each unit type
-	public static ArrayList<Unit> workers = new ArrayList<Unit>();
-	public static ArrayList<Unit> factories = new ArrayList<Unit>();
-	public static ArrayList<Unit> knights = new ArrayList<Unit>();
-	public static ArrayList<Unit> mages = new ArrayList<Unit>();
-	public static ArrayList<Unit> rangers = new ArrayList<Unit>();
-	public static ArrayList<Unit> rockets = new ArrayList<Unit>();
 	
 	//can make robotDirections a class variable
 	public static HashMap<Integer, Integer> robotDirections = new HashMap<Integer, Integer>();
@@ -64,6 +51,7 @@ public class Player {
 		directions[5] = Direction.Southwest;
 		directions[6] = Direction.West;
 		directions[7] = Direction.Northwest;
+		MapLocation buildLoc = null;
 		myTeam = gc.team();
 		if (myTeam.equals(Team.Blue)) {
 			opponentTeam = Team.Red;
@@ -73,13 +61,31 @@ public class Player {
 
 		// research code
 		gc.queueResearch(UnitType.Worker);
+		//round 25
 		gc.queueResearch(UnitType.Rocket);
+		//round 75
 		gc.queueResearch(UnitType.Knight);
+		//round 100
 		gc.queueResearch(UnitType.Knight);
+		//round 175
 		gc.queueResearch(UnitType.Worker);
+		//round 250
+		gc.queueResearch(UnitType.Ranger);
+		//round 275
+		gc.queueResearch(UnitType.Mage);
+		//round 300
 		gc.queueResearch(UnitType.Worker);
+		//round 375
 		gc.queueResearch(UnitType.Rocket);
+		//round 475
 		gc.queueResearch(UnitType.Worker);
+		//round 550
+		gc.queueResearch(UnitType.Ranger);
+		//round 650
+		gc.queueResearch(UnitType.Mage);
+		//round 725
+		gc.queueResearch(UnitType.Mage);
+		//round 825
 
 		// karbonite finding stuff
 
@@ -88,7 +94,7 @@ public class Player {
 		int w = (int) earthMap.getWidth();
 
 
-		karboniteAmts = new EarthDeposit[w][h];
+		EarthDeposit[][] karboniteAmts = new EarthDeposit[w][h];
 		//loads matrix of earth deposits that have an earth deposit
 		for(int i = 0; i < w; i++){
 			for(int j = 0; j < h; j++){
@@ -104,7 +110,7 @@ public class Player {
 		}
 
 		while (true) {
-			roundNum = (int) gc.round();
+			int roundNum = (int) gc.round();
 			System.out.println("Current round: "+roundNum);
 			// VecUnit is a class that you can think of as similar to ArrayList<Unit>, but immutable.
 			VecUnit units = gc.myUnits();
@@ -113,6 +119,12 @@ public class Player {
 				MapLocation initialLoc = units.get(0).location().mapLocation();
 				buildLoc = findOpenAdjacentSpot(gc, initialLoc);
 			}
+			ArrayList<Unit> workers = new ArrayList<Unit>();
+			ArrayList<Unit> factories = new ArrayList<Unit>();
+			ArrayList<Unit> knights = new ArrayList<Unit>();
+			ArrayList<Unit> mages = new ArrayList<Unit>();
+			ArrayList<Unit> rangers = new ArrayList<Unit>();
+			ArrayList<Unit> rockets = new ArrayList<Unit>();
 			for (int i = 0; i < units.size(); i++) {
 				Unit unit = units.get(i);
 
@@ -158,20 +170,117 @@ public class Player {
 				buildLoc = findFarAwaySpot(gc, workers.get(0).location().mapLocation());
 			}
 			// worker code
-			runWorkers(gc);
+			// loop through workers
+			for (int i = 0; i < workers.size(); i++) {
+				Unit worker = workers.get(i);
+
+
+				if (workers.size() >= buildTeamSize && i < buildTeamSize) {
+					UnitType buildType = null;
+					int size = 0;
+					boolean areBuilding = true;
+					if (factories.size() < 3 || !finishedFactories) {
+						buildType = UnitType.Factory;
+						size = factories.size();
+					} else if (workers.size() < 8) {
+						areBuilding = false;
+						produceWorkers(gc, worker);
+					} else if (roundNum > 75 && (rockets.size() == 0 || !finishedRockets)) {
+						buildType = UnitType.Rocket;
+						size = rockets.size();
+					} else {
+						areBuilding = false;
+						harvestKarbonite(gc, worker, karboniteAmts);
+						bounceMove(worker, gc);
+					}
+
+					// if building, run build sequences
+					if (areBuilding) {
+						switch (i) {
+						case 0:
+							runBuildSequence(gc, worker, buildLoc, buildType, size);
+						case 1:
+							runBuildSequence(gc, worker, buildLoc, buildType, size);
+						case 2:
+							runBuildSequence(gc, worker, buildLoc, buildType, size);
+						case 3:
+							runBuildSequence(gc, worker, buildLoc, buildType, size);
+						}
+					}
+				} else {
+					if (workers.size() < 4) {
+						produceWorkers(gc, worker);
+					}
+					else if (workers.size() < 8 && factories.size() == 3) {
+						produceWorkers(gc, worker);
+					}
+					else if (rockets.size() > 0 && i < 2) {
+						MapLocation myLoc = worker.location().mapLocation();
+						MapLocation rocketLoc = rockets.get(0).location().mapLocation();
+						if (!myLoc.isAdjacentTo(rocketLoc)) {
+							moveToLoc(gc, worker, rocketLoc);
+						}
+					}
+					else {
+						harvestKarbonite(gc, worker, karboniteAmts);
+					}
+				}
+			}
 
 			// knight code
-			runKnights(gc);
+			for (int i = 0; i < knights.size(); i++) {
+				boolean goingToMars = false;
+				Unit knight = knights.get(i);
+				if (!knight.location().isInGarrison() && !knight.location().isInSpace()) {
+					MapLocation myLoc = knight.location().mapLocation();
+					if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
+						MapLocation rocketLoc = rockets.get(0).location().mapLocation();
+						if (myLoc.isAdjacentTo(rocketLoc)) {
+							goingToMars = true;
+						} else if (myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) {
+							moveToLoc(gc, knight, rocketLoc);
+						}
+					}
+					if (!goingToMars) {
+						int visionRange = (int) knight.visionRange();
+						VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
+						MapLocation attackLoc = swarmLoc;
+
+						// if reached target, stop swarming
+						if (swarmLoc != null && myLoc.equals(swarmLoc)) {
+							swarmLoc = null;
+						}
+
+						if (enemies.size() > 0) {
+							// find closest enemy
+							Unit closestEnemy = findClosestEnemy(gc, knight, enemies);
+							long dist = myLoc.distanceSquaredTo(closestEnemy.location().mapLocation());
+
+							// attack closest enemy
+							attackLoc = closestEnemy.location().mapLocation();
+							if (dist == 1 && gc.isAttackReady(knight.id()) && gc.canAttack(knight.id(), closestEnemy.id())) {
+								gc.attack(knight.id(), closestEnemy.id());
+							}
+
+							if (swarmLoc == null) {
+								swarmLoc = attackLoc;
+							}
+						}
+						if (attackLoc == null) {
+							bounceMove(knight, gc);
+						} else {
+							moveToLoc(gc, knight, attackLoc);
+						}
+					}
+				}
+			}
 			
-			// mage code
-			runMage(gc);
-			
-			//ranger code
-			runRanger(gc);
+			runMage(mages, rockets, gc);
+			runRanger(rangers, rockets, gc);
 
 			// factory code
-			if (roundNum > 75 && rockets.size() == 0) {
-				runFactories(gc, factories, 2 + (roundNum / 50));
+			if (roundNum > 75 && gc.karbonite() <  75 && rockets.size() == 0) {
+				runFactories(gc, factories, roundNum / 50);
 			} else {
 				runFactories(gc, factories, 1);
 			}
@@ -179,115 +288,6 @@ public class Player {
 			// Submit the actions we've done, and wait for our next turn.
 			gc.nextTurn();
 		}
-	}
-
-	private static void runKnights(GameController gc) {
-		for (int i = 0; i < knights.size(); i++) {
-			boolean goingToMars = false;
-			Unit knight = knights.get(i);
-			if (!knight.location().isInGarrison() && !knight.location().isInSpace()) {
-				MapLocation myLoc = knight.location().mapLocation();
-				if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
-					MapLocation rocketLoc = rockets.get(0).location().mapLocation();
-					if (myLoc.isAdjacentTo(rocketLoc)) {
-						goingToMars = true;
-					} else if (myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 5) {
-						moveToLoc(gc, knight, rocketLoc);
-					}
-				}
-				if (!goingToMars) {
-					int visionRange = (int) knight.visionRange();
-					VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
-					MapLocation attackLoc = swarmLoc;
-
-					// if reached target, stop swarming
-					if (swarmLoc != null && myLoc.equals(swarmLoc)) {
-						swarmLoc = null;
-					}
-
-					if (enemies.size() > 0) {
-						// find closest enemy
-						Unit closestEnemy = findClosestEnemy(gc, knight, enemies);
-						long dist = myLoc.distanceSquaredTo(closestEnemy.location().mapLocation());
-
-						// attack closest enemy
-						attackLoc = closestEnemy.location().mapLocation();
-						if (dist == 1 && gc.isAttackReady(knight.id()) && gc.canAttack(knight.id(), closestEnemy.id())) {
-							gc.attack(knight.id(), closestEnemy.id());
-						}
-
-						if (swarmLoc == null) {
-							swarmLoc = attackLoc;
-						}
-					}
-					if (attackLoc == null) {
-						bounceMove(knight, gc);
-					} else {
-						moveToLoc(gc, knight, attackLoc);
-					}
-				}
-			}
-		}
-		
-	}
-
-	private static void runWorkers(GameController gc) {
-		for (int i = 0; i < workers.size(); i++) {
-			Unit worker = workers.get(i);
-
-
-			if (workers.size() >= buildTeamSize && i < buildTeamSize) {
-				UnitType buildType = null;
-				int size = 0;
-				boolean areBuilding = true;
-				if (factories.size() < 3 || !finishedFactories) {
-					buildType = UnitType.Factory;
-					size = factories.size();
-				} else if (workers.size() < 8) {
-					areBuilding = false;
-					produceWorkers(gc, worker);
-				} else if (roundNum > 75 && (rockets.size() == 0 || !finishedRockets)) {
-					buildType = UnitType.Rocket;
-					size = rockets.size();
-				} else {
-					areBuilding = false;
-					harvestKarbonite(gc, worker, karboniteAmts);
-					bounceMove(worker, gc);
-				}
-
-				// if building, run build sequences
-				if (areBuilding) {
-					switch (i) {
-					case 0:
-						runBuildSequence(gc, worker, buildLoc, buildType, size);
-					case 1:
-						runBuildSequence(gc, worker, buildLoc, buildType, size);
-					case 2:
-						runBuildSequence(gc, worker, buildLoc, buildType, size);
-					case 3:
-						runBuildSequence(gc, worker, buildLoc, buildType, size);
-					}
-				}
-			} else {
-				if (workers.size() < 4) {
-					produceWorkers(gc, worker);
-				}
-				else if (workers.size() < 8 && factories.size() == 3) {
-					produceWorkers(gc, worker);
-				}
-				else if (rockets.size() > 0 && i < 2) {
-					MapLocation myLoc = worker.location().mapLocation();
-					MapLocation rocketLoc = rockets.get(0).location().mapLocation();
-					if (!myLoc.isAdjacentTo(rocketLoc)) {
-						moveToLoc(gc, worker, rocketLoc);
-					}
-				}
-				else {
-					harvestKarbonite(gc, worker, karboniteAmts);
-				}
-			}
-		}
-		
 	}
 
 	private static void harvestKarbonite(GameController gc, Unit worker, EarthDeposit[][] karboniteAmts) {
@@ -363,7 +363,7 @@ public class Player {
 				if (gc.canBuild(worker.id(), blueprint.id())) {
 					gc.build(worker.id(), blueprint.id());
 				}
-				if (blueprint.health() == blueprint.maxHealth()) {
+				if (blueprint.unitType().equals(buildType) && blueprint.health() == blueprint.maxHealth()) {
 					MapLocation possibleLoc = null;
 					if (buildType.equals(UnitType.Factory)) {
 						possibleLoc = findOpenAdjacentSpot(gc, myLoc);
@@ -379,7 +379,7 @@ public class Player {
 						finishedFactories = true;
 					}
 					// stop building rockets
-					if (builtNum == 1 && buildType.equals(UnitType.Rocket)) {
+					if (builtNum == (1 + gc.round() / 300) && buildType.equals(UnitType.Rocket)) {
 						finishedRockets = true;
 					}
 				}
@@ -695,49 +695,50 @@ public class Player {
 		}
 	}
 	
-	private static void runRanger(GameController gc) {
+	private static void runRanger(ArrayList<Unit> rangers, ArrayList<Unit> rockets, GameController gc) {
 		// TODO copy-pasted from mage code
 		for (int i = 0; i < rangers.size(); i++) {
 
 			Unit ranger = rangers.get(i);
 
 			if (!ranger.location().isInGarrison() && !ranger.location().isInSpace()) {
-
+				boolean goingToMars = false;
 				MapLocation myLoc = ranger.location().mapLocation();
 
-				if (i < 5 && rockets.size() > 0) {
+				if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
 					MapLocation rocketLoc = rockets.get(0).location().mapLocation();
-					
 					if (myLoc.isAdjacentTo(rocketLoc)) {
-						moveToLoc(gc, ranger, rockets.get(0).location().mapLocation());
+						goingToMars = true;
+					} else if (myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) {
+						moveToLoc(gc, ranger, rocketLoc);
 					}
-
-				} else {
-					
+				}
+				if (!goingToMars) {
 					rangedUnitAttack(ranger, myLoc, gc);
-					
 				}
 			}
 		}
 
 	}
 
-	private static void runMage(GameController gc) {
+	private static void runMage(ArrayList<Unit> mages, ArrayList<Unit> rockets, GameController gc) {
 		// TODO basically copy-pasted from knight code
 		for (int i = 0; i < mages.size(); i++) {
 
 			Unit mage = mages.get(i);
 
 			if (!mage.location().isInGarrison() && !mage.location().isInSpace()) {
-
+				boolean goingToMars = false;
 				MapLocation myLoc = mage.location().mapLocation();
-
-				if (i < 5 && rockets.size() > 0) {
+				if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
 					MapLocation rocketLoc = rockets.get(0).location().mapLocation();
 					if (myLoc.isAdjacentTo(rocketLoc)) {
-						moveToLoc(gc, mage, rockets.get(0).location().mapLocation());
+						goingToMars = true;
+					} else if (myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) {
+						moveToLoc(gc, mage, rocketLoc);
 					}
-				} else {
+				}
+				if (!goingToMars) {
 					rangedUnitAttack(mage, myLoc, gc);
 				}
 			}
