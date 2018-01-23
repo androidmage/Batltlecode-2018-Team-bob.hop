@@ -5,7 +5,7 @@ import java.util.HashMap;
 
 import bc.*;
 
-public class SeedingPlayer {
+public class SprintPlayer {
 	public static Direction[] directions = new Direction[8];
 	public static boolean finishedFactories = false;
 	public static boolean finishedRockets = false;
