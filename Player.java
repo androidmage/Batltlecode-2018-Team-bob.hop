@@ -758,6 +758,56 @@ public class Player {
 				moveToLoc(gc, unit, attackLoc);
 		}
 	}
+	
+	private static void rangerMoveToAttack(Unit ranger, MapLocation myLoc, GameController gc) {
+		int visionRange = (int) ranger.visionRange();
+		VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
+		MapLocation attackLoc = swarmLoc;
+		boolean enemyInMaxRange = false, enemyWithinInnerRange = false;
+		// if reached target, stop swarming
+		if (swarmLoc != null && myLoc.equals(swarmLoc)) {
+			swarmLoc = null;
+		}
+
+		if (enemies.size() > 0) {
+			// find closest enemy
+			Unit closestEnemy = findClosestEnemy(gc, ranger, enemies);
+
+			// get location of target/closest enemy
+			attackLoc = closestEnemy.location().mapLocation();
+			long dist = myLoc.distanceSquaredTo(attackLoc);
+
+			enemyInMaxRange = (dist <= ranger.attackRange());
+			enemyWithinInnerRange = (dist <= ranger.rangerCannotAttackRange());
+
+			// move to edge of attack range
+			MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(attackLoc));
+
+			if (moveLoc.distanceSquaredTo(attackLoc) <= ranger.attackRange())
+				moveToLoc(gc, ranger, moveLoc);
+
+			if (enemyInMaxRange
+					&& !enemyWithinInnerRange
+					&& gc.isAttackReady(ranger.id())
+					&& gc.canAttack(ranger.id(), closestEnemy.id())) {
+
+				gc.attack(ranger.id(), closestEnemy.id());
+
+			}
+
+			if (swarmLoc == null) {
+				swarmLoc = attackLoc;
+			}
+
+		}
+		if (attackLoc == null) {
+			enemyInMaxRange = false;
+			bounceMove(ranger, gc);
+		} else {
+			if (!enemyInMaxRange)
+				moveToLoc(gc, ranger, attackLoc);
+		}
+	}
 
 	private static void runRanger(ArrayList<Unit> rangers, ArrayList<Unit> rockets, GameController gc) {
 		// TODO copy-pasted from mage code
