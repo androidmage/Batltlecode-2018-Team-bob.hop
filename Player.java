@@ -698,6 +698,24 @@ public class Player {
 		}
 		return possibleLoc;
 	}
+	
+	private static boolean unitToRocket(Unit unit, MapLocation myLoc, int count, GameController gc) {
+		boolean doRocketStuff = false;
+
+		if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
+
+			MapLocation rocketLoc = rockets.get(0).location().mapLocation();
+
+			if (!myLoc.isAdjacentTo(rocketLoc)) {
+				doRocketStuff = true;
+				if (myLoc.distanceSquaredTo(rocketLoc) < 64 || count < 2) {
+					moveToLoc(gc, unit, rocketLoc);
+				}
+			}
+		}
+
+		return doRocketStuff;
+	}
 
 	private static void rangedUnitAttack(Unit unit, MapLocation myLoc, GameController gc) {
 		int visionRange = (int) unit.visionRange();
@@ -748,43 +766,30 @@ public class Player {
 			Unit ranger = rangers.get(i);
 
 			if (!ranger.location().isInGarrison() && !ranger.location().isInSpace()) {
-				boolean goingToMars = false;
+
 				MapLocation myLoc = ranger.location().mapLocation();
 
-				if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
-					MapLocation rocketLoc = rockets.get(0).location().mapLocation();
-					if (myLoc.isAdjacentTo(rocketLoc)) {
-						goingToMars = true;
-					} else if (myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) {
-						moveToLoc(gc, ranger, rocketLoc);
-					}
-				}
-				if (!goingToMars) {
-					rangedUnitAttack(ranger, myLoc, gc);
+				if (!unitToRocket(ranger, myLoc, i, gc)) {
+
+					rangerMoveToAttack(ranger, myLoc, gc);
+
 				}
 			}
 		}
-
 	}
 
 	private static void runMage(ArrayList<Unit> mages, ArrayList<Unit> rockets, GameController gc) {
-		// TODO basically copy-pasted from knight code
 		for (int i = 0; i < mages.size(); i++) {
 
 			Unit mage = mages.get(i);
 
 			if (!mage.location().isInGarrison() && !mage.location().isInSpace()) {
-				boolean goingToMars = false;
+
 				MapLocation myLoc = mage.location().mapLocation();
-				if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
-					MapLocation rocketLoc = rockets.get(0).location().mapLocation();
-					if (myLoc.isAdjacentTo(rocketLoc)) {
-						goingToMars = true;
-					} else if (myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) {
-						moveToLoc(gc, mage, rocketLoc);
-					}
-				}
+				boolean goingToMars = unitToRocket(mage,myLoc,i,gc);
+
 				if (!goingToMars) {
+
 					rangedUnitAttack(mage, myLoc, gc);
 				}
 			}
