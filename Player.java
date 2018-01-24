@@ -787,7 +787,7 @@ public class Player {
 
 				MapLocation myLoc = mage.location().mapLocation();
 
-				if (!unitToRocket(mage,myLoc,i,gc);) {
+				if (!unitToRocket(mage,myLoc,i,gc)) {
 
 					rangedUnitAttack(mage, myLoc, gc);
 				}
