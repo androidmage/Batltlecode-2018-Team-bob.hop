@@ -699,7 +699,7 @@ public class Player {
 		return possibleLoc;
 	}
 	
-	private static boolean unitToRocket(Unit unit, MapLocation myLoc, int count, GameController gc) {
+	private static boolean unitToRocket(Unit unit, MapLocation myLoc, ArrayList<Unit> rockets, int count, GameController gc) {
 		boolean doRocketStuff = false;
 
 		if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
@@ -819,7 +819,7 @@ public class Player {
 
 				MapLocation myLoc = ranger.location().mapLocation();
 
-				if (!unitToRocket(ranger, myLoc, i, gc)) {
+				if (!unitToRocket(ranger, myLoc, rockets, i, gc)) {
 
 					rangerMoveToAttack(ranger, myLoc, gc);
 
@@ -837,7 +837,7 @@ public class Player {
 
 				MapLocation myLoc = mage.location().mapLocation();
 
-				if (!unitToRocket(mage,myLoc,i,gc)) {
+				if (!unitToRocket(mage,myLoc,rockets,i,gc)) {
 
 					rangedUnitAttack(mage, myLoc, gc);
 				}
