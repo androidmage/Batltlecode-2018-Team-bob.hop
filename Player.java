@@ -195,7 +195,6 @@ public class Player {
 						produceWorkers(gc, worker);
 					}
 					if (i % 4 < 3) {
-						System.out.println("worker robot");
 						UnitType buildType = null;
 						int size = 0;
 						boolean areBuilding = true;
@@ -219,7 +218,6 @@ public class Player {
 							runBuildSequence(gc, worker, buildLoc, buildType, size, h);
 						}
 					} else {
-						System.out.println("not worker robot");
 						if (workers.size() < 4) {
 							produceWorkers(gc, worker);
 						}
@@ -308,9 +306,9 @@ public class Player {
 				if (troopSize < 10) {
 					runFactories(gc, factories, 1);
 				} else if (troopSize < 20) {
-					runFactories(gc, factories, roundNum / 100);
-				} else {
 					runFactories(gc, factories, roundNum / 50);
+				} else {
+					runFactories(gc, factories, roundNum / 100 * (troopSize / 10));
 				}
 			} else {
 				runFactories(gc, factories, 1);
