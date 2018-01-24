@@ -17,6 +17,7 @@ public class Player {
 	public static PlanetMap marsMap;
 	public static MapLocation landLoc = new MapLocation(Planet.Mars, 1, 1);
 	public static int buildTeamSize;
+	public static long totalKarboniteAmount;
 	
 	//can make robotDirections a class variable
 	public static HashMap<Integer, Integer> robotDirections = new HashMap<Integer, Integer>();
@@ -25,6 +26,7 @@ public class Player {
 	//make maplocation dootadoot for saving locations, checking if things get stuck and such
 	public static HashMap<Integer, MapLocation> robotChecker = new HashMap<Integer, MapLocation>();
 
+	
 	public static void main(String[] args) {
 
 		// Connect to the manager, starting the game
@@ -32,7 +34,7 @@ public class Player {
 
 		// get planet and planet map
 		thisPlanet = gc.planet();
-		earthMap = gc.startingMap(thisPlanet);
+		earthMap = gc.startingMap(Planet.Earth);
 		marsMap = gc.startingMap(Planet.Mars);
 
 		// don't build if on mars
@@ -90,23 +92,38 @@ public class Player {
 		// karbonite finding stuff
 
 		//map dimensions
-		int h = (int) earthMap.getHeight();
-		int w = (int) earthMap.getWidth();
-
+		int h, w;
+		if(thisPlanet.equals(Planet.Earth)){
+			h = (int) earthMap.getHeight();
+			w = (int) earthMap.getWidth();
+		}
+		else{
+			h = (int) marsMap.getHeight();
+			w = (int) marsMap.getWidth();
+		}
 
 		EarthDeposit[][] karboniteAmts = new EarthDeposit[w][h];
 		//loads matrix of earth deposits that have an earth deposit
 		for(int i = 0; i < w; i++){
 			for(int j = 0; j < h; j++){
 				MapLocation loca = new MapLocation(thisPlanet, i, j);
-				long x = (int) earthMap.initialKarboniteAt(loca);
+				long x;
+				if(thisPlanet.equals(Planet.Earth)){
+					x = earthMap.initialKarboniteAt(loca);
+				}
+				else{
+					x = marsMap.initialKarboniteAt(loca);
+				}
 				if(x != 0){
 					karboniteAmts[i][j] = new EarthDeposit(loca, x);
 				}
 				else{
 					karboniteAmts[i][j] = new EarthDeposit(loca, 0);
 				}
+				totalKarboniteAmount += x;
 			}
+
+
 		}
 
 		while (true) {
@@ -134,7 +151,7 @@ public class Player {
 						factories.add(unit);
 						break;
 					case Healer:
-						runHealer();
+						runHealer(unit, rockets, gc, units);
 						break;
 					case Knight:
 						knights.add(unit);
@@ -171,61 +188,68 @@ public class Player {
 			}
 			// worker code
 			// loop through workers
-			for (int i = 0; i < workers.size(); i++) {
-				Unit worker = workers.get(i);
-
-
-				if (workers.size() >= buildTeamSize && i < buildTeamSize) {
-					UnitType buildType = null;
-					int size = 0;
-					boolean areBuilding = true;
-					if (factories.size() < 3 || !finishedFactories) {
-						buildType = UnitType.Factory;
-						size = factories.size();
-					} else if (workers.size() < 8) {
-						areBuilding = false;
+			if (thisPlanet.equals(Planet.Earth)) {
+				for (int i = 0; i < workers.size(); i++) {
+					Unit worker = workers.get(i);
+					if (roundNum < 5) {
 						produceWorkers(gc, worker);
-					} else if (roundNum > 75 && (rockets.size() == 0 || !finishedRockets)) {
-						buildType = UnitType.Rocket;
-						size = rockets.size();
+					}
+					if (i % 4 < 3) {
+						System.out.println("worker robot");
+						UnitType buildType = null;
+						int size = 0;
+						boolean areBuilding = true;
+						if (factories.size() < 3 || factories.size() < (h / 20) || !finishedFactories) {
+							buildType = UnitType.Factory;
+							size = factories.size();
+						} else if (workers.size() < 4 || workers.size() < 2 + h / 10) {
+							areBuilding = false;
+							produceWorkers(gc, worker);
+						} else if (roundNum > 75 && (rockets.size() == 0 || !finishedRockets)) {
+							buildType = UnitType.Rocket;
+							size = rockets.size();
+						} else {
+							areBuilding = false;
+							harvestKarbonite(gc, worker, karboniteAmts);
+							bounceMove(worker, gc);
+						}
+
+						// if building, run build sequences
+						if (areBuilding) {
+							runBuildSequence(gc, worker, buildLoc, buildType, size, h);
+						}
 					} else {
-						areBuilding = false;
-						harvestKarbonite(gc, worker, karboniteAmts);
-						bounceMove(worker, gc);
-					}
-
-					// if building, run build sequences
-					if (areBuilding) {
-						switch (i) {
-						case 0:
-							runBuildSequence(gc, worker, buildLoc, buildType, size);
-						case 1:
-							runBuildSequence(gc, worker, buildLoc, buildType, size);
-						case 2:
-							runBuildSequence(gc, worker, buildLoc, buildType, size);
-						case 3:
-							runBuildSequence(gc, worker, buildLoc, buildType, size);
+						System.out.println("not worker robot");
+						if (workers.size() < 4) {
+							produceWorkers(gc, worker);
+						}
+						else if (workers.size() < 8 && factories.size() == h / 20) {
+							produceWorkers(gc, worker);
+						}
+						else if (rockets.size() > 0 && i % 4 == 2) {
+							MapLocation myLoc = worker.location().mapLocation();
+							MapLocation rocketLoc = rockets.get(0).location().mapLocation();
+							if (!myLoc.isAdjacentTo(rocketLoc)) {
+								moveToLoc(gc, worker, rocketLoc);
+							}
+						}
+						else {
+							harvestKarbonite(gc, worker, karboniteAmts);
 						}
 					}
-				} else {
-					if (workers.size() < 4) {
+				}
+			} else { // on mars
+				for(int i = 0; i < workers.size(); i++){
+					Unit worker = workers.get(i);
+					if(totalKarboniteAmount/500 < workers.size() || workers.size() < 4){
 						produceWorkers(gc, worker);
 					}
-					else if (workers.size() < 8 && factories.size() == 3) {
-						produceWorkers(gc, worker);
-					}
-					else if (rockets.size() > 0 && i < 2) {
-						MapLocation myLoc = worker.location().mapLocation();
-						MapLocation rocketLoc = rockets.get(0).location().mapLocation();
-						if (!myLoc.isAdjacentTo(rocketLoc)) {
-							moveToLoc(gc, worker, rocketLoc);
-						}
-					}
-					else {
+					else{
 						harvestKarbonite(gc, worker, karboniteAmts);
 					}
 				}
 			}
+			
 
 			// knight code
 			for (int i = 0; i < knights.size(); i++) {
@@ -279,8 +303,15 @@ public class Player {
 			runRanger(rangers, rockets, gc);
 
 			// factory code
-			if (roundNum > 75 && gc.karbonite() <  75 && rockets.size() == 0) {
-				runFactories(gc, factories, roundNum / 50);
+			if (roundNum > 75 && gc.karbonite() < 75 && rockets.size() == 0) {
+				int troopSize = knights.size() + rangers.size() + mages.size();
+				if (troopSize < 10) {
+					runFactories(gc, factories, 1);
+				} else if (troopSize < 20) {
+					runFactories(gc, factories, roundNum / 100);
+				} else {
+					runFactories(gc, factories, roundNum / 50);
+				}
 			} else {
 				runFactories(gc, factories, 1);
 			}
@@ -297,6 +328,7 @@ public class Player {
 		int n = 0;
 		int h = (int) earthMap.getHeight();
 		int w = (int) earthMap.getWidth();
+		boolean gotSomething = false;
 		MapLocation playerLocation = worker.location().mapLocation();
 		for(int a = 0; a < w; a++){
 			for(int b = 0; b < h; b++){
@@ -307,22 +339,38 @@ public class Player {
 					if(karboniteAmts[m][n].getValue(playerLocation) > karboniteAmts[a][b].getValue(playerLocation)){
 						m = a;
 						n = b;
+						gotSomething = true;
 					}
 				}
 			}
 		}
-
-
-
-		if(karboniteAmts[m][n].getLoc().equals(worker.location().mapLocation())){
-			if(gc.canHarvest(worker.id(), Direction.Center)){
-				gc.harvest(worker.id(), Direction.Center);
-				karboniteAmts[m][n].changeCount(gc.karboniteAt(karboniteAmts[m][n].getLoc()));
-			}
+		
+		if(!gotSomething){
+			bounceMove(worker, gc);
 		}
-
 		else{
-			moveToLoc(gc, worker, karboniteAmts[m][n].getLoc());
+			boolean harvested = false;
+			MapLocation karbLoc = karboniteAmts[m][n].getLoc();
+			if(karbLoc.equals(worker.location().mapLocation())){
+				if(gc.canHarvest(worker.id(), Direction.Center)){
+					harvested = true;
+					gc.harvest(worker.id(), Direction.Center);
+					karboniteAmts[m][n].changeCount(gc.karboniteAt(karbLoc));
+				}
+			}
+			if(karbLoc.isAdjacentTo(worker.location().mapLocation())){
+				if(gc.canHarvest(worker.id(), worker.location().mapLocation().directionTo(karbLoc))){
+					if(gc.canHarvest(worker.id(), Direction.Center)){
+						harvested = true;
+						gc.harvest(worker.id(), Direction.Center);
+						karboniteAmts[m][n].changeCount(gc.karboniteAt(karbLoc));
+					}
+				}
+			}
+	
+			if(!harvested){
+				moveToLoc(gc, worker, karbLoc);
+			}
 		}
 		
 	}
@@ -342,7 +390,7 @@ public class Player {
 		return closestEnemy;
 	}
 
-	private static void runBuildSequence(GameController gc, Unit worker, MapLocation buildLoc, UnitType buildType, int builtNum) {
+	private static void runBuildSequence(GameController gc, Unit worker, MapLocation buildLoc, UnitType buildType, int builtNum, int h) {
 		MapLocation myLoc = worker.location().mapLocation();
 		if (myLoc.isAdjacentTo(buildLoc)) {
 			Direction buildDir = myLoc.directionTo(buildLoc);
@@ -584,7 +632,7 @@ public class Player {
 	private static void produceWorkers(GameController gc, Unit worker) {
 		MapLocation myLoc = worker.location().mapLocation();
 		MapLocation makeLoc = findOpenAdjacentSpot(gc, myLoc);
-		//replicates worker in random direction
+		//replicates worker in open direction
 		if(makeLoc != null && gc.karbonite() >= 30 && gc.canReplicate(worker.id(), myLoc.directionTo(makeLoc))) {
 			gc.replicate(worker.id(), myLoc.directionTo(makeLoc));
 		}
@@ -694,7 +742,7 @@ public class Player {
 				moveToLoc(gc, unit, attackLoc);
 		}
 	}
-	
+
 	private static void runRanger(ArrayList<Unit> rangers, ArrayList<Unit> rockets, GameController gc) {
 		// TODO copy-pasted from mage code
 		for (int i = 0; i < rangers.size(); i++) {
@@ -745,30 +793,98 @@ public class Player {
 		}
 	}
 
-	private static void runHealer() {
-		// TODO Auto-generated method stub
-
+	private static void runHealer(Unit healer, ArrayList<Unit> rockets, GameController gc, VecUnit units) {
+		if(!healer.location().isInGarrison() &&  !healer.location().isInSpace()){
+			ArrayList<Unit> visibleUnits = new ArrayList<Unit>();
+			MapLocation myLoc = healer.location().mapLocation();
+			for(int j = 0; j < units.size(); j++){
+				Unit unit = units.get(j);
+				if(!unit.location().isInGarrison() &&  !unit.location().isInSpace()){
+					if(healer.visionRange() >= units.get(j).location().mapLocation().distanceSquaredTo(myLoc)){
+						visibleUnits.add(units.get(j));
+					}
+				}
+			}
+			
+			if(visibleUnits.size() > 0){
+				boolean seeInjured = false;
+				Unit priority = visibleUnits.get(0);
+				double priorityVal = getHealerVal(priority, myLoc);
+				for(int j = 1; j < visibleUnits.size(); j++){
+					double value = getHealerVal(visibleUnits.get(j), myLoc);
+					if(priorityVal > value){
+						priority = visibleUnits.get(j);
+						priorityVal = value;
+					}
+				}
+				int targetId = priority.id();
+				int healerId = healer.id();
+				if (priority.health() != priority.maxHealth()) {
+					if(gc.canHeal(healerId, targetId)){
+						if(gc.isHealReady(healerId)){
+							gc.heal(healerId, targetId);
+						}
+					}
+					else{
+						moveToLoc(gc, healer, priority.location().mapLocation());
+					}
+				}
+			}
+			if (gc.isMoveReady(healer.id())) {
+				if(swarmLoc != null){
+					moveToLoc(gc, healer, swarmLoc);
+				}
+				else{
+					bounceMove(healer, gc);
+				}
+			}
+		}
+	}
+	
+	private static double getHealerVal(Unit u, MapLocation healerLoc){
+		long i = u.location().mapLocation().distanceSquaredTo(healerLoc);
+		double percentageLeft = u.health()/(double)u.maxHealth();
+		if(percentageLeft == 1){
+			return 10000;
+		}
+		return i * percentageLeft;
 	}
 
 	private static void runFactories(GameController gc, ArrayList<Unit> factories, int slowDownRate) {
-		if (factories.size() == 3) {
+		if (factories.size() >= 2) {
 			for (Unit factory : factories) {
 				MapLocation myLoc = factory.location().mapLocation();
 				MapLocation openLoc = findOpenAdjacentSpot(gc, myLoc);
 				if (openLoc != null) {
+					int factoryId = factory.id();
+
 					Direction openDir = myLoc.directionTo(openLoc);
-					if (gc.canUnload(factory.id(), openDir)) {
-						gc.unload(factory.id(), openDir);
+					if (gc.canUnload(factoryId, openDir)) {
+						gc.unload(factoryId, openDir);
 					}
 					if ((int) (Math.random() * slowDownRate) == 0) {
 						int random = (int) (Math.random() * 10) + 1;
-						if (random <= 5 && gc.canProduceRobot(factory.id(), UnitType.Knight)) {
-							gc.produceRobot(factory.id(), UnitType.Knight);
-						} else if (random <= 8 && gc.canProduceRobot(factory.id(), UnitType.Ranger)) {
-							gc.produceRobot(factory.id(), UnitType.Ranger);
-						} else if (random <= 10 && gc.canProduceRobot(factory.id(), UnitType.Mage)) {
-							gc.produceRobot(factory.id(), UnitType.Mage);
+						if(gc.round() < 100){
+							if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+								gc.produceRobot(factoryId, UnitType.Knight);
+							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
+								gc.produceRobot(factoryId, UnitType.Ranger);
+							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
+								gc.produceRobot(factoryId, UnitType.Mage);
+							}
 						}
+						else{
+							if (random <= 4 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+								gc.produceRobot(factoryId, UnitType.Knight);
+							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
+								gc.produceRobot(factoryId, UnitType.Ranger);
+							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
+								gc.produceRobot(factoryId, UnitType.Mage);
+							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Healer)) {
+								gc.produceRobot(factoryId, UnitType.Healer);
+							}
+						}
+						
 					}
 				}
 			}
