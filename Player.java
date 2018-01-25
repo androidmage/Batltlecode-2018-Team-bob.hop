@@ -16,6 +16,7 @@ public class Player {
 	public static PlanetMap earthMap;
 	public static Planet thisPlanet;
 	public static PlanetMap marsMap;
+	public static PlanetMap thisMap;
 	public static MapLocation landLoc = new MapLocation(Planet.Mars, 1, 1);
 	public static int buildTeamSize;
 	public static long totalKarboniteAmount;
@@ -44,7 +45,8 @@ public class Player {
 		thisPlanet = gc.planet();
 		earthMap = gc.startingMap(Planet.Earth);
 		marsMap = gc.startingMap(Planet.Mars);
-
+		thisMap = gc.startingMap(thisPlanet);
+		
 		// don't build if on mars
 		if (thisPlanet.equals(Planet.Mars)) {
 			buildTeamSize = 0;
@@ -191,7 +193,7 @@ public class Player {
 			}
 
 			// keep rocket building going
-			if (buildLoc == null && workers.size() > 0) {
+			if (buildLoc == null && workers.size() > 0 && !thisPlanet.equals(Planet.Mars)) {
 				buildLoc = findFarAwaySpot(gc, workers.get(0).location().mapLocation());
 				if (buildLoc != null && factories.size() > 2) {
 					spreadPathfindingMapEarthRocket = updatePathfindingMap(buildLoc, earthMap);
@@ -254,11 +256,12 @@ public class Player {
 			} else { // on mars
 				for(int i = 0; i < workers.size(); i++){
 					Unit worker = workers.get(i);
-					if(totalKarboniteAmount/500 < workers.size() || workers.size() < 4){
+					if(totalKarboniteAmount/50 > workers.size() || workers.size() < 4){
 						produceWorkers(gc, worker);
 					}
-					else{
+					if (gc.isMoveReady(worker.id())) {
 						harvestKarbonite(gc, worker, karboniteAmts);
+						bounceMove(worker, gc);
 					}
 				}
 			}
@@ -322,10 +325,10 @@ public class Player {
 
 			// factory code
 			if (roundNum > 75 && gc.karbonite() < 75 && rockets.size() == 0) {
-				if (troopSize < 10) {
+				if (troopSize < 10 || rockets.size() > 0) {
 					runFactories(gc, factories, 1);
 				} else if (troopSize < 20) {
-					runFactories(gc, factories, roundNum / 50);
+					runFactories(gc, factories, roundNum / 75);
 				} else {
 					runFactories(gc, factories, roundNum / 100 * (troopSize / 10));
 				}
@@ -485,7 +488,7 @@ public class Player {
 		int counter = 0;
 		while (!dirFound && counter < 8) {
 			MapLocation possibleLoc = myLoc.add(directions[counter]);
-			if (earthMap.onMap(possibleLoc) && gc.isOccupiable(possibleLoc) == 1) {
+			if (thisMap.onMap(possibleLoc) && gc.isOccupiable(possibleLoc) == 1) {
 				dirFound = true;
 				returnLoc = possibleLoc;
 			}
@@ -513,7 +516,7 @@ public class Player {
 				}
 
 				Direction moveDir = null;
-				// rotate left to find viable direction
+				// rotate to find viable direction
 				int counter = 1;
 				while (moveDir == null && counter < 4) {
 					int dirPos = position - counter;
