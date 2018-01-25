@@ -2,6 +2,7 @@
 //See xxx for the javadocs.
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 
 import bc.*;
 
@@ -18,15 +19,22 @@ public class Player {
 	public static MapLocation landLoc = new MapLocation(Planet.Mars, 1, 1);
 	public static int buildTeamSize;
 	public static long totalKarboniteAmount;
-	
+	public static MapLocation buildLoc = null;
+	public static int troopSize;
+
+	// pathfinding static variables
+	public static Direction[][] spreadPathfindingMapEarthSwarm;
+	public static Direction[][] spreadPathfindingMapMarsSwarm;
+	private static Direction[][] spreadPathfindingMapEarthRocket;
+
 	//can make robotDirections a class variable
 	public static HashMap<Integer, Integer> robotDirections = new HashMap<Integer, Integer>();
-		//directions already is a class variable, directions is the movement shit
+	//directions already is a class variable, directions is the movement shit
 
 	//make maplocation dootadoot for saving locations, checking if things get stuck and such
 	public static HashMap<Integer, MapLocation> robotChecker = new HashMap<Integer, MapLocation>();
 
-	
+
 	public static void main(String[] args) {
 
 		// Connect to the manager, starting the game
@@ -53,7 +61,6 @@ public class Player {
 		directions[5] = Direction.Southwest;
 		directions[6] = Direction.West;
 		directions[7] = Direction.Northwest;
-		MapLocation buildLoc = null;
 		myTeam = gc.team();
 		if (myTeam.equals(Team.Blue)) {
 			opponentTeam = Team.Red;
@@ -174,6 +181,7 @@ public class Player {
 							Unit enemy = findClosestEnemy(gc, unit, enemies);
 							if (swarmLoc == null) {
 								swarmLoc = enemy.location().mapLocation();
+								updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
 							}
 						}
 						workers.add(unit);
@@ -185,7 +193,14 @@ public class Player {
 			// keep rocket building going
 			if (buildLoc == null && workers.size() > 0) {
 				buildLoc = findFarAwaySpot(gc, workers.get(0).location().mapLocation());
+				if (buildLoc != null && factories.size() > 2) {
+					spreadPathfindingMapEarthRocket = updatePathfindingMap(buildLoc, earthMap);
+				}
 			}
+			
+			// get troop size, used for swarms
+			troopSize = knights.size() + rangers.size() + mages.size();
+			
 			// worker code
 			// loop through workers
 			if (thisPlanet.equals(Planet.Earth)) {
@@ -221,7 +236,7 @@ public class Player {
 						if (workers.size() < 4) {
 							produceWorkers(gc, worker);
 						}
-						else if (workers.size() < 8 && factories.size() == h / 20) {
+						else if (workers.size() < 8 && factories.size() < h / 20) {
 							produceWorkers(gc, worker);
 						}
 						else if (rockets.size() > 0 && i % 4 == 2) {
@@ -247,7 +262,7 @@ public class Player {
 					}
 				}
 			}
-			
+
 
 			// knight code
 			for (int i = 0; i < knights.size(); i++) {
@@ -284,25 +299,29 @@ public class Player {
 								gc.attack(knight.id(), closestEnemy.id());
 							}
 
-							if (swarmLoc == null) {
+							if (swarmLoc == null && attackLoc != null) {
 								swarmLoc = attackLoc;
+								updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
 							}
 						}
 						if (attackLoc == null) {
+							// bounce if no enemies
 							bounceMove(knight, gc);
-						} else {
+						} else if (enemies.size() > 0 || troopSize > 15){
+							// move towards enemy if nearby or go to swarmLoc if enough troops 
 							moveToLoc(gc, knight, attackLoc);
+						} else {
+							bounceMove(knight, gc);
 						}
 					}
 				}
 			}
-			
+
 			runMage(mages, rockets, gc);
 			runRanger(rangers, rockets, gc);
 
 			// factory code
 			if (roundNum > 75 && gc.karbonite() < 75 && rockets.size() == 0) {
-				int troopSize = knights.size() + rangers.size() + mages.size();
 				if (troopSize < 10) {
 					runFactories(gc, factories, 1);
 				} else if (troopSize < 20) {
@@ -342,7 +361,7 @@ public class Player {
 				}
 			}
 		}
-		
+
 		if(!gotSomething){
 			bounceMove(worker, gc);
 		}
@@ -365,12 +384,12 @@ public class Player {
 					}
 				}
 			}
-	
+
 			if(!harvested){
 				moveToLoc(gc, worker, karbLoc);
 			}
 		}
-		
+
 	}
 
 	private static Unit findClosestEnemy(GameController gc, Unit unit, VecUnit enemies) {
@@ -409,7 +428,7 @@ public class Player {
 				if (gc.canBuild(worker.id(), blueprint.id())) {
 					gc.build(worker.id(), blueprint.id());
 				}
-				if (blueprint.unitType().equals(buildType) && blueprint.health() == blueprint.maxHealth()) {
+				if (blueprint.health() == blueprint.maxHealth()) {
 					MapLocation possibleLoc = null;
 					if (buildType.equals(UnitType.Factory)) {
 						possibleLoc = findOpenAdjacentSpot(gc, myLoc);
@@ -419,6 +438,7 @@ public class Player {
 					if (possibleLoc != null) {
 						buildLoc.setX(possibleLoc.getX());
 						buildLoc.setY(possibleLoc.getY());
+						spreadPathfindingMapEarthRocket = updatePathfindingMap(buildLoc, earthMap);
 					}
 					// stop building factories
 					if (builtNum == 3 && buildType.equals(UnitType.Factory)) {
@@ -432,15 +452,21 @@ public class Player {
 			}
 		} else {
 			// move towards build location
-			moveToLoc(gc, worker, buildLoc);
+			// if still building factories, use moveToLoc
+			// if building rockets, use bfs path
+			if (!finishedFactories) {
+				moveToLoc(gc, worker, buildLoc);
+			} else {
+				moveAlongBFSPath(gc, worker);
+			}
 		}
 	}
 
 	private static MapLocation findFarAwaySpot(GameController gc, MapLocation myLoc) {
 		MapLocation possibleLoc = null;
 		boolean foundOpenSpace = false;
-		int distance = 3;
-		while (!foundOpenSpace && distance < 6) {
+		int distance = 2;
+		while (!foundOpenSpace && distance < 5) {
 			for (int i = 0; i < directions.length; i++) {
 				MapLocation newLoc = myLoc.addMultiple(directions[i], distance);
 				if (earthMap.onMap(newLoc) && gc.isOccupiable(newLoc) == 1) {
@@ -475,7 +501,7 @@ public class Player {
 
 		// if unit can move to target location then it does
 		if (gc.isMoveReady(unit.id())) {
-			if (gc.canMove(unit.id(), targetDir)) {
+			if (gc.canMove(unit.id(), targetDir) && shouldMoveTowards(myLoc, targetDir)) {
 				gc.moveRobot(unit.id(), targetDir);
 			} else {
 				// finds position in directions array
@@ -494,14 +520,14 @@ public class Player {
 					if (dirPos < 0) {
 						dirPos += 8;
 					}
-					if (gc.canMove(unit.id(), directions[dirPos])) {
+					if (gc.canMove(unit.id(), directions[dirPos]) && shouldMoveTowards(myLoc, directions[dirPos])) {
 						moveDir = directions[dirPos];
 					} else {
 						dirPos = position + counter;
 						if (dirPos > 7) {
 							dirPos -= 8;
 						}
-						if (gc.canMove(unit.id(), directions[dirPos])) {
+						if (gc.canMove(unit.id(), directions[dirPos]) && shouldMoveTowards(myLoc, directions[dirPos])) {
 							moveDir = directions[dirPos];
 						}
 					}
@@ -515,7 +541,115 @@ public class Player {
 			}
 		}
 	}
-	
+
+	private static boolean shouldMoveTowards(MapLocation myLoc, Direction direction) {
+		boolean shouldMove = true;
+		if (buildLoc != null && myLoc.add(direction).equals(buildLoc)) {
+			shouldMove = false;
+		}
+		return shouldMove;
+	}
+
+	/**
+	 * Basic tryMove based on direction. assumes move is ready (isMoveReady() waas already checked and returns true
+	 * @param toMove direction to move in
+	 */
+	public static void tryMove(GameController gc, Unit unit, Direction toMove){
+		if (gc.isMoveReady(unit.id())) {
+			//if can move forwards
+			if (gc.canMove(unit.id(), toMove)){
+				gc.moveRobot(unit.id(), toMove);
+			}
+			else{
+				//tests moving one direction right, then one direction left
+				//than a further direction right (total 2) then a further direction left
+				Direction rightRotation = bc.bcDirectionRotateRight(toMove);
+				if (gc.canMove(unit.id(), rightRotation)){
+					gc.moveRobot(unit.id(), rightRotation);
+				}
+				else {
+					Direction leftRotation = bc.bcDirectionRotateLeft(toMove);
+					if (gc.canMove(unit.id(), leftRotation)) {
+						gc.moveRobot(unit.id(), leftRotation);
+					} else {
+						rightRotation = bc.bcDirectionRotateRight(rightRotation);
+						if (gc.canMove(unit.id(), rightRotation)) {
+							gc.moveRobot(unit.id(), rightRotation);
+						} else {
+							leftRotation = bc.bcDirectionRotateLeft(leftRotation);
+							if (gc.canMove(unit.id(), leftRotation)) {
+								gc.moveRobot(unit.id(), leftRotation);
+							} else {
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	public static void moveAlongBFSPath(GameController gc, Unit unit){
+		MapLocation myLoc = unit.location().mapLocation();
+		Direction directionToMove;
+		if (gc.planet().equals(Planet.Earth)){
+			if (unit.unitType().equals(UnitType.Worker)) {
+				directionToMove = bc.bcDirectionOpposite(getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthRocket));
+			} else {
+				directionToMove = bc.bcDirectionOpposite(getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthSwarm));
+			}
+		}
+		else{
+			directionToMove = bc.bcDirectionOpposite(getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapMarsSwarm));
+		}
+
+		tryMove(gc, unit, directionToMove);
+	}
+
+	/**
+    @param target assumes the target location is on the same planet as the planet currently being run
+     @param mapToUpdate pathfinding map to update
+     @param planetMap map of planet to create pathfinding for
+	 */
+	public static Direction[][] updatePathfindingMap(MapLocation target, PlanetMap planetMap){
+		Direction[][] currentMap;
+		Planet currentPlanet = planetMap.getPlanet();
+
+		currentMap = new Direction[(int)planetMap.getHeight()][(int)planetMap.getWidth()];
+
+		LinkedList<MapLocation> bfsQueue = new LinkedList<MapLocation>();
+		MapLocation tempLocation;
+		MapLocation currentBFSLocation;
+		bfsQueue.add(target);
+		while (bfsQueue.size() > 0){
+			//gets first item in bfsQueue
+			currentBFSLocation = bfsQueue.poll();
+			for (int i = 0; i < 8; i++) {
+				tempLocation = currentBFSLocation.add(directions[i]);
+				//only runs calculations if the added part is actually on the map...
+				if ( (tempLocation.getY() >= 0 && tempLocation.getY() < currentMap.length)
+						&& (tempLocation.getX() >= 0 && tempLocation.getX() < currentMap[0].length)) {
+					//only runs calculation if that area of the pathfindingMap hasn't been filled in yet
+					if (getValueInPathfindingMap(tempLocation.getX(), tempLocation.getY(), currentMap) == null) {
+						if (planetMap.isPassableTerrainAt(new MapLocation(currentPlanet, tempLocation.getX(), tempLocation.getY())) != 0) {
+							bfsQueue.add(tempLocation);
+							setValueInPathfindingMap(tempLocation.getX(), tempLocation.getY(), directions[i], currentMap);
+						}
+					}
+				}
+			}
+		}
+
+		return currentMap;
+	}
+
+	public static Direction getValueInPathfindingMap(int x, int y, Direction[][] map){
+		return map[map.length-1-y][x];
+	}
+
+	public static void setValueInPathfindingMap(int x, int y, Direction myDirection, Direction[][] map){
+		map[map.length-1-y][x] = myDirection;
+	}
+
 	public static void bounceMove(Unit u, GameController gc){
 		int id = u.id();
 		if(gc.round()%20 == 0){
@@ -655,7 +789,7 @@ public class Player {
 			if (gc.canLaunchRocket(rocket.id(), landLoc) && garrison.size() == 8) {
 				gc.launchRocket(rocket.id(), landLoc);
 				landLoc = new MapLocation(Planet.Mars, (int) (Math.random() * marsMap.getWidth()), (int) (Math.random() * marsMap.getHeight()));
-				
+
 			}
 		} else {
 			for (int i = 0; i < garrison.size(); i++) {
@@ -681,7 +815,7 @@ public class Player {
 		}
 
 	}
-	
+
 	private static MapLocation findFarAwaySpotOnMars(GameController gc, MapLocation myLoc) {
 		MapLocation possibleLoc = null;
 		boolean foundOpenSpace = false;
@@ -698,7 +832,7 @@ public class Player {
 		}
 		return possibleLoc;
 	}
-	
+
 	private static boolean unitToRocket(Unit unit, MapLocation myLoc, ArrayList<Unit> rockets, int count, GameController gc) {
 		boolean doRocketStuff = false;
 
@@ -732,33 +866,40 @@ public class Player {
 			Unit closestEnemy = findClosestEnemy(gc, unit, enemies);
 			long dist = myLoc.distanceSquaredTo(closestEnemy.location().mapLocation());
 			enemyInRange = dist <= unit.attackRange();
-			
+
 			// attack closest enemy
 			attackLoc = closestEnemy.location().mapLocation();
-			
-			
+
+
 			if (enemyInRange
-				&& gc.isAttackReady(unit.id())
-				&& gc.canAttack(unit.id(), closestEnemy.id())) {
-				
+					&& gc.isAttackReady(unit.id())
+					&& gc.canAttack(unit.id(), closestEnemy.id())) {
+
 				gc.attack(unit.id(), closestEnemy.id());
-				
+
 			}
 
-			if (swarmLoc == null) {
+			if (swarmLoc == null && attackLoc != null) {
 				swarmLoc = attackLoc;
+				updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
 			}
 
 		}
 		if (attackLoc == null) {
+			// bounce if no enemies
 			enemyInRange = false;
 			bounceMove(unit, gc);
 		} else {
-			if (!enemyInRange)
+			if (!enemyInRange && troopSize > 15) {
+				// move towards swarmLoc if enough troops
 				moveToLoc(gc, unit, attackLoc);
+			} else {
+				// if not enough troops then bounce
+				bounceMove(unit, gc);
+			}
 		}
 	}
-	
+
 	private static void rangerMoveToAttack(Unit ranger, MapLocation myLoc, GameController gc) {
 		int visionRange = (int) ranger.visionRange();
 		VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
@@ -795,17 +936,24 @@ public class Player {
 
 			}
 
-			if (swarmLoc == null) {
+			if (swarmLoc == null && attackLoc != null) {
 				swarmLoc = attackLoc;
+				updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
 			}
 
 		}
 		if (attackLoc == null) {
+			// bounce if no enemies
 			enemyInMaxRange = false;
 			bounceMove(ranger, gc);
 		} else {
-			if (!enemyInMaxRange)
+			if (!enemyInMaxRange && troopSize > 15) {
+				// move towards swarmLoc if enough troops
 				moveToLoc(gc, ranger, attackLoc);
+			} else {
+				// if not enough troops then bounce
+				bounceMove(ranger, gc);
+			}
 		}
 	}
 
@@ -857,7 +1005,7 @@ public class Player {
 					}
 				}
 			}
-			
+
 			if(visibleUnits.size() > 0){
 				boolean seeInjured = false;
 				Unit priority = visibleUnits.get(0);
@@ -892,7 +1040,7 @@ public class Player {
 			}
 		}
 	}
-	
+
 	private static double getHealerVal(Unit u, MapLocation healerLoc){
 		long i = u.location().mapLocation().distanceSquaredTo(healerLoc);
 		double percentageLeft = u.health()/(double)u.maxHealth();
@@ -936,7 +1084,7 @@ public class Player {
 								gc.produceRobot(factoryId, UnitType.Healer);
 							}
 						}
-						
+
 					}
 				}
 			}
