@@ -877,15 +877,7 @@ public class Player {
 
 			if (moveLoc.distanceSquaredTo(attackLoc) <= unit.attackRange())
 				moveToLoc(gc, unit, moveLoc);
-			
-//		    Worker = 0
-//		    	    Knight = 1
-//		    	    Ranger = 2
-//		    	    Mage = 3
-//		    	    Healer = 4
-//		    	    Factory = 5
-//		    	    Rocket = 6
-			
+
 			if (unit.unitType().equals(UnitType.Ranger)) {
 				if (dist <= unit.attackRange()
 						&& !(dist <= unit.rangerCannotAttackRange())
