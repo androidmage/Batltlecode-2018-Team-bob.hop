@@ -224,7 +224,7 @@ public class Player {
 						if (factories.size() < 2 || !finishedFactories) {
 							buildType = UnitType.Factory;
 							size = factories.size();
-						} else if (workers.size() < 4 && gc.isAttackReady(worker.id())
+						} else if (workers.size() < 5 && gc.isAttackReady(worker.id())
 								&& gc.karbonite() >= 60) {
 							areBuilding = false;
 							produceWorkers(gc, worker);
@@ -956,9 +956,13 @@ public class Player {
 			enemyInRange = false;
 			bounceMove(unit, gc);
 		} else {
-			if (!enemyInRange && troopSize > 15) {
-				// move towards swarmLoc if enough troops
-				moveAlongBFSPath(gc, unit);
+			if (!enemyInRange) {
+				if (troopSize > 15 && swarmLoc != null) {
+					// move towards swarmLoc if enough troops
+					moveAlongBFSPath(gc, unit);
+				} else {
+					bounceMove(unit, gc);
+				}
 			}
 		}
 	}
@@ -1076,7 +1080,7 @@ public class Player {
 						if(gc.round() < 100){
 							if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
-							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
+							} else if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
 							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
