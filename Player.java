@@ -22,7 +22,8 @@ public class Player {
 	public static long totalKarboniteAmount;
 	public static MapLocation buildLoc = null;
 	public static int troopSize;
-
+	public static int workforceSize;
+	
 	// pathfinding static variables
 	public static Direction[][] spreadPathfindingMapEarthSwarm;
 	public static Direction[][] spreadPathfindingMapMarsSwarm;
@@ -76,16 +77,23 @@ public class Player {
 		gc.queueResearch(UnitType.Rocket);
 		//round 75
 		gc.queueResearch(UnitType.Knight);
+		// round 100
 		gc.queueResearch(UnitType.Knight);
+		// round 175
 		gc.queueResearch(UnitType.Ranger);
+		// round 200
 		gc.queueResearch(UnitType.Mage);
+		// round 225
+		gc.queueResearch(UnitType.Knight);
+		// round 325 UNLOCK JAVELIN
+		gc.queueResearch(UnitType.Ranger);
+		// round 425
+		gc.queueResearch(UnitType.Mage);
+		// round 500
 		gc.queueResearch(UnitType.Rocket);
-		gc.queueResearch(UnitType.Ranger);
+		// round 600
 		gc.queueResearch(UnitType.Mage);
-		gc.queueResearch(UnitType.Mage);
-		gc.queueResearch(UnitType.Worker);
-		gc.queueResearch(UnitType.Worker);
-		gc.queueResearch(UnitType.Worker);
+		// round 700
 		
 
 		// karbonite finding stuff
@@ -197,8 +205,9 @@ public class Player {
 				}
 			}
 			
-			// get troop size, used for swarms
+			// get troop size and workforce size
 			troopSize = knights.size() + rangers.size() + mages.size();
+			workforceSize = workers.size();
 			
 			// worker code
 			// loop through workers
@@ -215,7 +224,7 @@ public class Player {
 						if (factories.size() < 2 || !finishedFactories) {
 							buildType = UnitType.Factory;
 							size = factories.size();
-						} else if (workers.size() < 4 || workers.size() < h / 5 && gc.isAttackReady(worker.id())
+						} else if (workers.size() < 4 && gc.isAttackReady(worker.id())
 								&& gc.karbonite() >= 60) {
 							areBuilding = false;
 							produceWorkers(gc, worker);
@@ -236,7 +245,7 @@ public class Player {
 						if (workers.size() < 4  && gc.isAttackReady(worker.id()) && gc.karbonite() >= 60) {
 							produceWorkers(gc, worker);
 						}
-						else if ((workers.size() < h / 5 || workers.size() < 7) && factories.size() > 1
+						else if ((workers.size() < h / 7 || workers.size() < 7) && factories.size() > 1
 								&& gc.isAttackReady(worker.id())
 								&& gc.karbonite() >= 60) {
 							produceWorkers(gc, worker);
@@ -299,8 +308,14 @@ public class Player {
 
 							// attack closest enemy
 							attackLoc = closestEnemy.location().mapLocation();
-							if (dist == 1 && gc.isAttackReady(knight.id()) && gc.canAttack(knight.id(), closestEnemy.id())) {
-								gc.attack(knight.id(), closestEnemy.id());
+							if (gc.isAttackReady(knight.id())) {
+								if (dist == 1 && gc.canAttack(knight.id(), closestEnemy.id())) {
+									gc.attack(knight.id(), closestEnemy.id());
+								} else if (knight.researchLevel() == 3) {
+									if (gc.isJavelinReady(knight.id()) && gc.canJavelin(knight.id(), closestEnemy.id())) {
+										gc.javelin(knight.id(), closestEnemy.id());
+									}
+								}
 							}
 
 							if (swarmLoc == null && attackLoc != null) {
@@ -334,7 +349,7 @@ public class Player {
 			if (roundNum > 300 && gc.karbonite() < 150 && rockets.size() == 0) {
 				if (troopSize < 15 || rockets.size() > 0) {
 					runFactories(gc, factories, 1);
-				} else if (troopSize < 25) {
+				} else if (troopSize < 20) {
 					runFactories(gc, factories, roundNum / 100);
 				} else {
 					runFactories(gc, factories, roundNum / 100 * (troopSize / 10));
@@ -1053,19 +1068,22 @@ public class Player {
 					if (gc.canUnload(factoryId, openDir)) {
 						gc.unload(factoryId, openDir);
 					}
+					if (workforceSize == 0 && gc.canProduceRobot(factory.id(), UnitType.Worker)) {
+						gc.produceRobot(factory.id(), UnitType.Worker);
+					}
 					if ((int) (Math.random() * slowDownRate) == 0) {
 						int random = (int) (Math.random() * 10) + 1;
 						if(gc.round() < 100){
-							if (random <= 6 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+							if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
-							} else if (random <= 9 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
+							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
 							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
 							}
 						}
 						else{
-							if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+							if (random <= 4 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
 							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
