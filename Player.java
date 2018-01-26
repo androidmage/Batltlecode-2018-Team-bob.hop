@@ -877,13 +877,33 @@ public class Player {
 
 			if (moveLoc.distanceSquaredTo(attackLoc) <= unit.attackRange())
 				moveToLoc(gc, unit, moveLoc);
+			
+//		    Worker = 0
+//		    	    Knight = 1
+//		    	    Ranger = 2
+//		    	    Mage = 3
+//		    	    Healer = 4
+//		    	    Factory = 5
+//		    	    Rocket = 6
+			
+			if (unit.unitType().equals(UnitType.Ranger)) {
+				if (dist <= unit.attackRange()
+						&& !(dist <= unit.rangerCannotAttackRange())
+						&& gc.isAttackReady(unit.id())
+						&& gc.canAttack(unit.id(), closestEnemy.id())) {
 
-			if (enemyInRange
+					gc.attack(unit.id(), closestEnemy.id());
+
+				}
+			}
+			else {
+				if (enemyInRange
 					&& gc.isAttackReady(unit.id())
 					&& gc.canAttack(unit.id(), closestEnemy.id())) {
-
-				gc.attack(unit.id(), closestEnemy.id());
-
+				
+					gc.attack(unit.id(), closestEnemy.id());
+				
+				}
 			}
 
 			if (swarmLoc == null) {
