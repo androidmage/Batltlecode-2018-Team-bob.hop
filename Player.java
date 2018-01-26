@@ -869,94 +869,49 @@ public class Player {
 			Unit closestEnemy = findClosestEnemy(gc, unit, enemies);
 			long dist = myLoc.distanceSquaredTo(closestEnemy.location().mapLocation());
 			enemyInRange = dist <= unit.attackRange();
-
+			
 			// attack closest enemy
 			attackLoc = closestEnemy.location().mapLocation();
+			
+			MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(attackLoc));
 
+			if (moveLoc.distanceSquaredTo(attackLoc) <= unit.attackRange())
+				moveToLoc(gc, unit, moveLoc);
 
-			if (enemyInRange
+			if (unit.unitType().equals(UnitType.Ranger)) {
+				if (dist <= unit.attackRange()
+						&& !(dist <= unit.rangerCannotAttackRange())
+						&& gc.isAttackReady(unit.id())
+						&& gc.canAttack(unit.id(), closestEnemy.id())) {
+
+					gc.attack(unit.id(), closestEnemy.id());
+
+				}
+			}
+			else {
+				if (enemyInRange
 					&& gc.isAttackReady(unit.id())
 					&& gc.canAttack(unit.id(), closestEnemy.id())) {
-
-				gc.attack(unit.id(), closestEnemy.id());
-
+				
+					gc.attack(unit.id(), closestEnemy.id());
+				
+				}
 			}
 
 			if (swarmLoc == null && attackLoc != null) {
 				swarmLoc = attackLoc;
-				updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
 			}
 
 		}
 		if (attackLoc == null) {
-			// bounce if no enemies
 			enemyInRange = false;
 			bounceMove(unit, gc);
 		} else {
 			if (!enemyInRange && troopSize > 15) {
-				// move towards swarmLoc if enough troops
 				moveToLoc(gc, unit, attackLoc);
-			} else {
-				// if not enough troops then bounce
-				bounceMove(unit, gc);
-			}
-		}
-	}
-
-	private static void rangerMoveToAttack(Unit ranger, MapLocation myLoc, GameController gc) {
-		int visionRange = (int) ranger.visionRange();
-		VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
-		MapLocation attackLoc = swarmLoc;
-		boolean enemyInMaxRange = false, enemyWithinInnerRange = false;
-		// if reached target, stop swarming
-		if (swarmLoc != null && myLoc.equals(swarmLoc)) {
-			swarmLoc = null;
-		}
-
-		if (enemies.size() > 0) {
-			// find closest enemy
-			Unit closestEnemy = findClosestEnemy(gc, ranger, enemies);
-
-			// get location of target/closest enemy
-			attackLoc = closestEnemy.location().mapLocation();
-			long dist = myLoc.distanceSquaredTo(attackLoc);
-
-			enemyInMaxRange = (dist <= ranger.attackRange());
-			enemyWithinInnerRange = (dist <= ranger.rangerCannotAttackRange());
-
-			// move to edge of attack range
-			MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(attackLoc));
-
-			if (moveLoc.distanceSquaredTo(attackLoc) <= ranger.attackRange())
-				moveToLoc(gc, ranger, moveLoc);
-
-			if (enemyInMaxRange
-					&& !enemyWithinInnerRange
-					&& gc.isAttackReady(ranger.id())
-					&& gc.canAttack(ranger.id(), closestEnemy.id())) {
-
-				gc.attack(ranger.id(), closestEnemy.id());
-
-			}
-
-			if (swarmLoc == null && attackLoc != null) {
-				swarmLoc = attackLoc;
-				updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
-			}
-
-		}
-		if (attackLoc == null) {
-			// bounce if no enemies
-			enemyInMaxRange = false;
-			bounceMove(ranger, gc);
-		} else {
-			if (!enemyInMaxRange && troopSize > 15) {
-				// move towards swarmLoc if enough troops
-				moveToLoc(gc, ranger, attackLoc);
-			} else {
-				// if not enough troops then bounce
-				bounceMove(ranger, gc);
-			}
+		} else {		
+			// if not enough troops then bounce		
+			bounceMove(unit, gc);		
 		}
 	}
 
@@ -972,7 +927,7 @@ public class Player {
 
 				if (!unitToRocket(ranger, myLoc, rockets, i, gc)) {
 
-					rangerMoveToAttack(ranger, myLoc, gc);
+					rangedUnitAttack(ranger, myLoc, gc);
 
 				}
 			}
