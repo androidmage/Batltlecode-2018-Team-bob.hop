@@ -898,7 +898,7 @@ public class Player {
 				}
 			}
 
-			if (swarmLoc == null) {
+			if (swarmLoc == null && attackLoc != null) {
 				swarmLoc = attackLoc;
 			}
 
