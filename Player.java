@@ -215,7 +215,8 @@ public class Player {
 						if (factories.size() < 2 || !finishedFactories) {
 							buildType = UnitType.Factory;
 							size = factories.size();
-						} else if (workers.size() < 4 || workers.size() < h / 5) {
+						} else if (workers.size() < 4 || workers.size() < h / 5 && gc.isAttackReady(worker.id())
+								&& gc.karbonite() >= 60) {
 							areBuilding = false;
 							produceWorkers(gc, worker);
 						} else if (roundNum > 300 && (rockets.size() == 0 || !finishedRockets)) {
@@ -232,10 +233,12 @@ public class Player {
 							runBuildSequence(gc, worker, buildLoc, buildType, size, h);
 						}
 					} else {
-						if (workers.size() < 4) {
+						if (workers.size() < 4  && gc.isAttackReady(worker.id()) && gc.karbonite() >= 60) {
 							produceWorkers(gc, worker);
 						}
-						else if (workers.size() < h * w / 100 && factories.size() > 1) {
+						else if ((workers.size() < h / 5 || workers.size() < 7) && factories.size() > 1
+								&& gc.isAttackReady(worker.id())
+								&& gc.karbonite() >= 60) {
 							produceWorkers(gc, worker);
 						}
 						else if (rockets.size() > 0 && i % 4 == 2) {
@@ -253,7 +256,8 @@ public class Player {
 			} else { // on mars
 				for(int i = 0; i < workers.size(); i++){
 					Unit worker = workers.get(i);
-					if(totalKarboniteAmount > 200 || workers.size() < 4){
+					if(totalKarboniteAmount > 200 || workers.size() < 4 && gc.isAttackReady(worker.id())
+							&& gc.karbonite() >= 60){
 						produceWorkers(gc, worker);
 					}
 					if (gc.isMoveReady(worker.id())) {
@@ -327,7 +331,7 @@ public class Player {
 			runRanger(rangers, rockets, gc);
 
 			// factory code
-			if (roundNum > 150 && gc.karbonite() < 150 && rockets.size() == 0) {
+			if (roundNum > 300 && gc.karbonite() < 150 && rockets.size() == 0) {
 				if (troopSize < 15 || rockets.size() > 0) {
 					runFactories(gc, factories, 1);
 				} else if (troopSize < 25) {
