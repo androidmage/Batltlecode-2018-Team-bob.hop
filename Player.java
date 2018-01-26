@@ -76,27 +76,17 @@ public class Player {
 		gc.queueResearch(UnitType.Rocket);
 		//round 75
 		gc.queueResearch(UnitType.Knight);
-		//round 100
 		gc.queueResearch(UnitType.Knight);
-		//round 175
-		gc.queueResearch(UnitType.Worker);
-		//round 250
 		gc.queueResearch(UnitType.Ranger);
-		//round 275
 		gc.queueResearch(UnitType.Mage);
-		//round 300
-		gc.queueResearch(UnitType.Worker);
-		//round 375
 		gc.queueResearch(UnitType.Rocket);
-		//round 475
-		gc.queueResearch(UnitType.Worker);
-		//round 550
 		gc.queueResearch(UnitType.Ranger);
-		//round 650
 		gc.queueResearch(UnitType.Mage);
-		//round 725
 		gc.queueResearch(UnitType.Mage);
-		//round 825
+		gc.queueResearch(UnitType.Worker);
+		gc.queueResearch(UnitType.Worker);
+		gc.queueResearch(UnitType.Worker);
+		
 
 		// karbonite finding stuff
 
@@ -189,6 +179,9 @@ public class Player {
 									spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap);
 								}
 							}
+							if (gc.isMoveReady(unit.id())) {
+								runAwayWorker(gc, unit, enemies);
+							}
 						}
 						workers.add(unit);
 						break;
@@ -199,7 +192,7 @@ public class Player {
 			// keep rocket building going
 			if (buildLoc == null && workers.size() > 0 && !thisPlanet.equals(Planet.Mars)) {
 				buildLoc = findFarAwaySpot(gc, workers.get(0).location().mapLocation());
-				if (buildLoc != null && factories.size() > 2) {
+				if (buildLoc != null && factories.size() > 1) {
 					spreadPathfindingMapEarthRocket = updatePathfindingMap(buildLoc, earthMap);
 				}
 			}
@@ -215,17 +208,17 @@ public class Player {
 					if (roundNum < 5) {
 						produceWorkers(gc, worker);
 					}
-					if (i % 4 < 3) {
+					if (i % 4 > 0) {
 						UnitType buildType = null;
 						int size = 0;
 						boolean areBuilding = true;
-						if (factories.size() < 3 || factories.size() < (h / 20) || !finishedFactories) {
+						if (factories.size() < 2 || !finishedFactories) {
 							buildType = UnitType.Factory;
 							size = factories.size();
-						} else if (workers.size() < 4 || workers.size() < h * w / 100) {
+						} else if (workers.size() < 4 || workers.size() < h / 5) {
 							areBuilding = false;
 							produceWorkers(gc, worker);
-						} else if (roundNum > 75 && (rockets.size() == 0 || !finishedRockets)) {
+						} else if (roundNum > 300 && (rockets.size() == 0 || !finishedRockets)) {
 							buildType = UnitType.Rocket;
 							size = rockets.size();
 						} else {
@@ -242,7 +235,7 @@ public class Player {
 						if (workers.size() < 4) {
 							produceWorkers(gc, worker);
 						}
-						else if (workers.size() < h * w / 100 && !(factories.size() < h / 20)) {
+						else if (workers.size() < h * w / 100 && factories.size() > 1) {
 							produceWorkers(gc, worker);
 						}
 						else if (rockets.size() > 0 && i % 4 == 2) {
@@ -252,7 +245,7 @@ public class Player {
 								moveToLoc(gc, worker, rocketLoc);
 							}
 						}
-						else {
+						else if (gc.isMoveReady(worker.id())) {
 							harvestKarbonite(gc, worker, karboniteAmts);
 						}
 					}
@@ -334,11 +327,11 @@ public class Player {
 			runRanger(rangers, rockets, gc);
 
 			// factory code
-			if (roundNum > 75 && gc.karbonite() < 75 && rockets.size() == 0) {
-				if (troopSize < 10 || rockets.size() > 0) {
+			if (roundNum > 200 && gc.karbonite() < 150 && rockets.size() == 0) {
+				if (troopSize < 15 || rockets.size() > 0) {
 					runFactories(gc, factories, 1);
-				} else if (troopSize < 20) {
-					runFactories(gc, factories, roundNum / 75);
+				} else if (troopSize < 25) {
+					runFactories(gc, factories, roundNum / 100);
 				} else {
 					runFactories(gc, factories, roundNum / 100 * (troopSize / 10));
 				}
@@ -349,6 +342,29 @@ public class Player {
 			// Submit the actions we've done, and wait for our next turn.
 			gc.nextTurn();
 		}
+	}
+
+	private static void runAwayWorker(GameController gc, Unit worker, VecUnit enemies) {
+		boolean hasMoved = false;
+		int counter = 0;
+		MapLocation myLoc = worker.location().mapLocation();
+		while (!hasMoved && counter < enemies.size()) {
+			Unit enemy = enemies.get(counter);
+			MapLocation enemyLoc = enemy.location().mapLocation();
+			long dist = myLoc.distanceSquaredTo(enemyLoc);
+			if ((enemy.unitType().equals(UnitType.Ranger) ||
+					enemy.unitType().equals(UnitType.Knight) ||
+					enemy.unitType().equals(UnitType.Mage)) &&
+					dist <= enemy.attackRange()) {
+				MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(enemyLoc));
+				if (thisMap.onMap(moveLoc) && gc.canMove(worker.id(), myLoc.directionTo(moveLoc))) {
+					gc.moveRobot(worker.id(), myLoc.directionTo(moveLoc));
+					hasMoved = true;
+				}
+			}
+			counter++;
+		}
+		
 	}
 
 	private static void harvestKarbonite(GameController gc, Unit worker, EarthDeposit[][] karboniteAmts) {
@@ -1036,16 +1052,16 @@ public class Player {
 					if ((int) (Math.random() * slowDownRate) == 0) {
 						int random = (int) (Math.random() * 10) + 1;
 						if(gc.round() < 100){
-							if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+							if (random <= 6 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
-							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
+							} else if (random <= 9 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
 							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
 							}
 						}
 						else{
-							if (random <= 4 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+							if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
 							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
