@@ -907,8 +907,11 @@ public class Player {
 			enemyInRange = false;
 			bounceMove(unit, gc);
 		} else {
-			if (!enemyInRange && troopSize > 15)
+			if (!enemyInRange && troopSize > 15) {
 				moveToLoc(gc, unit, attackLoc);
+		} else {		
+			// if not enough troops then bounce		
+			bounceMove(unit, gc);		
 		}
 	}
 
