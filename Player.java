@@ -183,7 +183,11 @@ public class Player {
 							Unit enemy = findClosestEnemy(gc, unit, enemies);
 							if (swarmLoc == null) {
 								swarmLoc = enemy.location().mapLocation();
-								updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
+								if (thisPlanet.equals(Planet.Earth)) {
+									spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap);
+								} else {
+									spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap);
+								}
 							}
 						}
 						workers.add(unit);
@@ -218,7 +222,7 @@ public class Player {
 						if (factories.size() < 3 || factories.size() < (h / 20) || !finishedFactories) {
 							buildType = UnitType.Factory;
 							size = factories.size();
-						} else if (workers.size() < 4 || workers.size() < 2 + h / 10) {
+						} else if (workers.size() < 4 || workers.size() < h * w / 100) {
 							areBuilding = false;
 							produceWorkers(gc, worker);
 						} else if (roundNum > 75 && (rockets.size() == 0 || !finishedRockets)) {
@@ -238,7 +242,7 @@ public class Player {
 						if (workers.size() < 4) {
 							produceWorkers(gc, worker);
 						}
-						else if (workers.size() < 8 && factories.size() < h / 20) {
+						else if (workers.size() < h * w / 100 && !(factories.size() < h / 20)) {
 							produceWorkers(gc, worker);
 						}
 						else if (rockets.size() > 0 && i % 4 == 2) {
@@ -256,7 +260,7 @@ public class Player {
 			} else { // on mars
 				for(int i = 0; i < workers.size(); i++){
 					Unit worker = workers.get(i);
-					if(totalKarboniteAmount/50 > workers.size() || workers.size() < 4){
+					if(totalKarboniteAmount > 200 || workers.size() < 4){
 						produceWorkers(gc, worker);
 					}
 					if (gc.isMoveReady(worker.id())) {
@@ -304,15 +308,21 @@ public class Player {
 
 							if (swarmLoc == null && attackLoc != null) {
 								swarmLoc = attackLoc;
-								updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
+								if (thisPlanet.equals(Planet.Earth)) {
+									spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap);
+								} else {
+									spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap);
+								}
 							}
 						}
 						if (attackLoc == null) {
 							// bounce if no enemies
 							bounceMove(knight, gc);
-						} else if (enemies.size() > 0 || troopSize > 15){
+						} else if (enemies.size() > 0){
 							// move towards enemy if nearby or go to swarmLoc if enough troops 
 							moveToLoc(gc, knight, attackLoc);
+						} else if (swarmLoc != null && (troopSize > 15 || thisPlanet.equals(Planet.Mars))) {
+							moveAlongBFSPath(gc, knight);
 						} else {
 							bounceMove(knight, gc);
 						}
@@ -593,19 +603,22 @@ public class Player {
 
 	public static void moveAlongBFSPath(GameController gc, Unit unit){
 		MapLocation myLoc = unit.location().mapLocation();
-		Direction directionToMove;
+		Direction oppositeDir;
 		if (gc.planet().equals(Planet.Earth)){
 			if (unit.unitType().equals(UnitType.Worker)) {
-				directionToMove = bc.bcDirectionOpposite(getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthRocket));
+				oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthRocket);
 			} else {
-				directionToMove = bc.bcDirectionOpposite(getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthSwarm));
+				oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthSwarm);
 			}
 		}
 		else{
-			directionToMove = bc.bcDirectionOpposite(getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapMarsSwarm));
+			oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapMarsSwarm);
 		}
-
-		tryMove(gc, unit, directionToMove);
+		if (oppositeDir != null) {
+			moveToLoc(gc, unit, myLoc.subtract(oppositeDir));
+		} else {
+			bounceMove(unit, gc);
+		}
 	}
 
 	/**
@@ -869,51 +882,108 @@ public class Player {
 			Unit closestEnemy = findClosestEnemy(gc, unit, enemies);
 			long dist = myLoc.distanceSquaredTo(closestEnemy.location().mapLocation());
 			enemyInRange = dist <= unit.attackRange();
-			
+
 			// attack closest enemy
 			attackLoc = closestEnemy.location().mapLocation();
-			
 			MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(attackLoc));
-
-			if (moveLoc.distanceSquaredTo(attackLoc) <= unit.attackRange())
+			
+			if (thisMap.onMap(moveLoc) && moveLoc.distanceSquaredTo(attackLoc) <= unit.attackRange()) {
 				moveToLoc(gc, unit, moveLoc);
+			}
 
 			if (unit.unitType().equals(UnitType.Ranger)) {
-				if (dist <= unit.attackRange()
-						&& !(dist <= unit.rangerCannotAttackRange())
+				// ranger attack
+				if (dist <= unit.attackRange() && !(dist <= unit.rangerCannotAttackRange())
 						&& gc.isAttackReady(unit.id())
 						&& gc.canAttack(unit.id(), closestEnemy.id())) {
-
 					gc.attack(unit.id(), closestEnemy.id());
-
 				}
-			}
-			else {
-				if (enemyInRange
-					&& gc.isAttackReady(unit.id())
-					&& gc.canAttack(unit.id(), closestEnemy.id())) {
-				
+			} else {
+				// mage attack
+				if (enemyInRange && gc.isAttackReady(unit.id()) 
+						&& gc.canAttack(unit.id(), closestEnemy.id())) {
 					gc.attack(unit.id(), closestEnemy.id());
-				
 				}
 			}
 
 			if (swarmLoc == null && attackLoc != null) {
 				swarmLoc = attackLoc;
+				if (thisPlanet.equals(Planet.Earth)) {
+					spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap);
+				} else {
+					spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap);
+				}
 			}
 
 		}
 		if (attackLoc == null) {
+			// bounce if no enemies
 			enemyInRange = false;
 			bounceMove(unit, gc);
 		} else {
 			if (!enemyInRange && troopSize > 15) {
-				moveToLoc(gc, unit, attackLoc);
-		} else {		
-			// if not enough troops then bounce		
-			bounceMove(unit, gc);		
+				// move towards swarmLoc if enough troops
+				moveAlongBFSPath(gc, unit);
+			}
 		}
 	}
+
+	/*private static void rangerMoveToAttack(Unit ranger, MapLocation myLoc, GameController gc) {
+		int visionRange = (int) ranger.visionRange();
+		VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
+		MapLocation attackLoc = swarmLoc;
+		boolean enemyInMaxRange = false, enemyWithinInnerRange = false;
+		// if reached target, stop swarming
+		if (swarmLoc != null && myLoc.equals(swarmLoc)) {
+			swarmLoc = null;
+		}
+
+		if (enemies.size() > 0) {
+			// find closest enemy
+			Unit closestEnemy = findClosestEnemy(gc, ranger, enemies);
+
+			// get location of target/closest enemy
+			attackLoc = closestEnemy.location().mapLocation();
+			long dist = myLoc.distanceSquaredTo(attackLoc);
+
+			enemyInMaxRange = (dist <= ranger.attackRange());
+			enemyWithinInnerRange = (dist <= ranger.rangerCannotAttackRange());
+
+			// move to edge of attack range
+			MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(attackLoc));
+
+			if (moveLoc.distanceSquaredTo(attackLoc) <= ranger.attackRange())
+				moveToLoc(gc, ranger, moveLoc);
+
+			if (enemyInMaxRange
+					&& !enemyWithinInnerRange
+					&& gc.isAttackReady(ranger.id())
+					&& gc.canAttack(ranger.id(), closestEnemy.id())) {
+
+				gc.attack(ranger.id(), closestEnemy.id());
+
+			}
+
+			if (swarmLoc == null && attackLoc != null) {
+				swarmLoc = attackLoc;
+				updatePathfindingMap(swarmLoc, gc.startingMap(thisPlanet));
+			}
+
+		}
+		if (attackLoc == null) {
+			// bounce if no enemies
+			enemyInMaxRange = false;
+			bounceMove(ranger, gc);
+		} else {
+			if (!enemyInMaxRange && troopSize > 15) {
+				// move towards swarmLoc if enough troops
+				moveToLoc(gc, ranger, attackLoc);
+			} else {
+				// if not enough troops then bounce
+				bounceMove(ranger, gc);
+			}
+		}
+	}*/
 
 	private static void runRanger(ArrayList<Unit> rangers, ArrayList<Unit> rockets, GameController gc) {
 		// TODO copy-pasted from mage code
