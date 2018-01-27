@@ -27,7 +27,8 @@ public class Player {
 	// pathfinding static variables
 	public static Direction[][] spreadPathfindingMapEarthSwarm;
 	public static Direction[][] spreadPathfindingMapMarsSwarm;
-	private static Direction[][] spreadPathfindingMapEarthBuildLoc;
+	public static Direction[][] spreadPathfindingMapEarthBuildLoc;
+	public static Direction[][] karboniteCollectionMap;
 
 	//can make robotDirections a class variable
 	public static HashMap<Integer, Integer> robotDirections = new HashMap<Integer, Integer>();
@@ -304,8 +305,7 @@ public class Player {
 			} else { // on mars
 				for(int i = 0; i < workers.size(); i++){
 					Unit worker = workers.get(i);
-					if(totalKarboniteAmount > 200 || workers.size() < 4 && gc.isAttackReady(worker.id())
-							&& gc.karbonite() >= 60){
+					if(gc.karbonite() > 200 || workers.size() < 4 && gc.isAttackReady(worker.id())){
 						produceWorkers(gc, worker);
 					}
 					if (gc.isMoveReady(worker.id())) {
@@ -374,7 +374,7 @@ public class Player {
 							// move towards enemy if nearby or go to swarmLoc if enough troops 
 							moveToLoc(gc, knight, attackLoc);
 						} else if (swarmLoc != null && (troopSize > 15 || thisPlanet.equals(Planet.Mars))) {
-							moveAlongBFSPath(gc, knight);
+							moveAlongBFSPath(gc, knight, spreadPathfindingMapEarthSwarm);
 						} else {
 							bounceMove(knight, gc);
 						}
@@ -431,8 +431,8 @@ public class Player {
 
 		int m = 0;
 		int n = 0;
-		int h = (int) earthMap.getHeight();
-		int w = (int) earthMap.getWidth();
+		int h = (int) thisMap.getHeight();
+		int w = (int) thisMap.getWidth();
 		boolean gotSomething = false;
 		MapLocation playerLocation = worker.location().mapLocation();
 		for(int a = 0; a < w; a++){
@@ -465,16 +465,15 @@ public class Player {
 			}
 			if(karbLoc.isAdjacentTo(worker.location().mapLocation())){
 				if(gc.canHarvest(worker.id(), worker.location().mapLocation().directionTo(karbLoc))){
-					if(gc.canHarvest(worker.id(), Direction.Center)){
-						harvested = true;
-						gc.harvest(worker.id(), Direction.Center);
-						karboniteAmts[m][n].changeCount(gc.karboniteAt(karbLoc));
-					}
+					harvested = true;
+					gc.harvest(worker.id(), worker.location().mapLocation().directionTo(karbLoc));
+					karboniteAmts[m][n].changeCount(gc.karboniteAt(karbLoc));
 				}
 			}
 
-			if(!harvested){
-				moveToLoc(gc, worker, karbLoc);
+			if(!harvested && karbLoc != null){
+				karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
+				moveAlongBFSPath(gc, worker, karboniteCollectionMap);
 			}
 		}
 
@@ -543,9 +542,9 @@ public class Player {
 			// if still building factories, use moveToLoc
 			// if building rockets, use bfs path
 			if (!finishedFactories) {
-				moveAlongBFSPath(gc, worker);
+				moveAlongBFSPath(gc, worker, spreadPathfindingMapEarthBuildLoc);
 			} else {
-				moveAlongBFSPath(gc, worker);
+				moveAlongBFSPath(gc, worker, spreadPathfindingMapEarthBuildLoc);
 			}
 		}
 	}
@@ -676,18 +675,11 @@ public class Player {
 		}
 	}
 
-	public static void moveAlongBFSPath(GameController gc, Unit unit){
+	public static void moveAlongBFSPath(GameController gc, Unit unit, Direction[][] map){
 		MapLocation myLoc = unit.location().mapLocation();
-		Direction oppositeDir;
-		if (gc.planet().equals(Planet.Earth)){
-			if (unit.unitType().equals(UnitType.Worker)) {
-				oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthBuildLoc);
-			} else {
-				oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthSwarm);
-			}
-		}
-		else{
-			oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapMarsSwarm);
+		Direction oppositeDir = null;
+		if (map != null) {
+			oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), map);
 		}
 		if (oppositeDir != null) {
 			moveToLoc(gc, unit, myLoc.subtract(oppositeDir));
@@ -999,7 +991,7 @@ public class Player {
 			if (!enemyInRange) {
 				if (troopSize > 15 && swarmLoc != null) {
 					// move towards swarmLoc if enough troops
-					moveAlongBFSPath(gc, unit);
+					moveAlongBFSPath(gc, unit, spreadPathfindingMapEarthSwarm);
 				} else {
 					bounceMove(unit, gc);
 				}
