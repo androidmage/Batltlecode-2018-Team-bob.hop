@@ -316,7 +316,7 @@ public class Player {
 								moveToLoc(gc, worker, rocketLoc);
 							}
 						}
-						else if (gc.isMoveReady(worker.id())) {
+						else {
 							harvestKarbonite(gc, worker, karboniteAmts);
 						}
 					}
@@ -490,7 +490,7 @@ public class Player {
 				}
 			}
 
-			if(!harvested && karbLoc != null){
+			if(!harvested && karbLoc != null && gc.isMoveReady(worker.id())){
 				if (thisPlanet.equals(Planet.Earth) && playerLocation.distanceSquaredTo(karbLoc) > 10
 						&& (Math.random() * 2 == 0)) {
 					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
@@ -764,7 +764,11 @@ public class Player {
 			if (startLoc != null) {
 				dist = myLoc.distanceSquaredTo(startLoc);
 			}
-			if (dist >= Math.pow(troopSize / 2 + (thisMap.getHeight() * thisMap.getWidth() / 100), 2) && troopSize < minTroopSwarmSize) {
+			double safeDistance = Math.pow(troopSize / 2 + (thisMap.getHeight() * thisMap.getWidth() / 100), 2);
+			if (u.unitType().equals(UnitType.Healer)) {
+				safeDistance /= 2;
+			}
+			if (dist >= safeDistance && troopSize < minTroopSwarmSize) {
 				moveToLoc(gc, u, startLoc);
 			} else {
 				int id = u.id();
@@ -960,8 +964,8 @@ public class Player {
 			MapLocation rocketLoc = rocket.location().mapLocation();
 
 			if (!myLoc.isAdjacentTo(rocketLoc) && rocket.health() == rocket.maxHealth()) {
-				doRocketStuff = true;
 				if (myLoc.distanceSquaredTo(rocketLoc) < 64 || count < 2) {
+					doRocketStuff = true;
 					moveToLoc(gc, unit, rocketLoc);
 				}
 			}
@@ -988,12 +992,12 @@ public class Player {
 
 			// attack closest enemy
 			attackLoc = closestEnemy.location().mapLocation();
-			MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(attackLoc));
 
+			MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(attackLoc));
 			if (thisMap.onMap(moveLoc) && moveLoc.distanceSquaredTo(attackLoc) <= unit.attackRange()) {
 				moveToLoc(gc, unit, moveLoc);
 			}
-
+			
 			if (unit.unitType().equals(UnitType.Ranger)) {
 				// ranger attack
 				if (dist <= unit.attackRange() && !(dist <= unit.rangerCannotAttackRange())
@@ -1081,7 +1085,7 @@ public class Player {
 				ArrayList<Unit> visibleUnits = new ArrayList<Unit>();
 				for(int j = 0; j < units.size(); j++){
 					Unit unit = units.get(j);
-					if(!(unit.unitType().equals(UnitType.Factory) || unit.unitType().equals(UnitType.Rocket)) && !unit.equals(healer)){
+					if(!(unit.unitType().equals(UnitType.Rocket)) && !unit.equals(healer)){
 						if(!unit.location().isInGarrison() &&  !unit.location().isInSpace()){
 							if(healer.visionRange() >= units.get(j).location().mapLocation().distanceSquaredTo(myLoc)){
 
@@ -1091,8 +1095,8 @@ public class Player {
 					}
 				}
 
+				Unit priority = null;
 				if(visibleUnits.size() > 0){
-					Unit priority = null;
 					double priorityVal = 9999;
 					for(int j = 0; j < visibleUnits.size(); j++){
 						double value = getHealerVal(visibleUnits.get(j), myLoc);
@@ -1105,17 +1109,19 @@ public class Player {
 					if (priority != null) {
 						MapLocation priorityLoc = priority.location().mapLocation();
 						int targetId = priority.id();
-						if(gc.canHeal(healerId, targetId)){
-							if(gc.isHealReady(healerId)){
-								gc.heal(healerId, targetId);
-							}
-						}
+						// move towards heal target if too far away or back away if might be dangerous
 						if (gc.isMoveReady(healer.id())) {
 							if(swarmLoc != null && (priorityLoc.distanceSquaredTo(swarmLoc) > myLoc.distanceSquaredTo(swarmLoc))){
 								Direction opp = bc.bcDirectionOpposite(myLoc.directionTo(swarmLoc));
 								moveToLoc(gc, healer, myLoc.add(opp));
 							} else if(myLoc.distanceSquaredTo(priorityLoc) > healer.attackRange()){
 								moveToLoc(gc, healer, priorityLoc);
+							}
+						}
+						
+						if(gc.canHeal(healerId, targetId)){
+							if(gc.isHealReady(healerId)){
+								gc.heal(healerId, targetId);
 							}
 						}
 					}
