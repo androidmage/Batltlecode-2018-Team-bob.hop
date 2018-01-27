@@ -218,7 +218,7 @@ public class Player {
 					if (roundNum < 5) {
 						produceWorkers(gc, worker);
 					}
-					if (i % 4 > 0) {
+					if (i % 3 > 0) {
 						UnitType buildType = null;
 						int size = 0;
 						boolean areBuilding = true;
