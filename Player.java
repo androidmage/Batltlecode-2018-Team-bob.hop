@@ -472,8 +472,12 @@ public class Player {
 			}
 
 			if(!harvested && karbLoc != null){
-				karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
-				moveAlongBFSPath(gc, worker, karboniteCollectionMap);
+				if (thisPlanet.equals(Planet.Earth) && playerLocation.distanceSquaredTo(karbLoc) > 4) {
+					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
+					moveAlongBFSPath(gc, worker, karboniteCollectionMap);
+				} else {
+					moveToLoc(gc, worker, karbLoc);
+				}
 			}
 		}
 
