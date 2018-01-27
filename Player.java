@@ -468,12 +468,17 @@ public class Player {
 					harvested = true;
 					gc.harvest(worker.id(), worker.location().mapLocation().directionTo(karbLoc));
 					karboniteAmts[m][n].changeCount(gc.karboniteAt(karbLoc));
+					System.out.println(playerLocation.distanceSquaredTo(karbLoc));
 				}
 			}
 
 			if(!harvested && karbLoc != null){
-				karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
-				moveAlongBFSPath(gc, worker, karboniteCollectionMap);
+				if (thisPlanet.equals(Planet.Earth) && playerLocation.distanceSquaredTo(karbLoc) > 4) {
+					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
+					moveAlongBFSPath(gc, worker, karboniteCollectionMap);
+				} else {
+					moveToLoc(gc, worker, karbLoc);
+				}
 			}
 		}
 
