@@ -23,7 +23,7 @@ public class Player {
 	public static MapLocation buildLoc = null;
 	public static int troopSize;
 	public static int workforceSize;
-	
+
 	// pathfinding static variables
 	public static Direction[][] spreadPathfindingMapEarthSwarm;
 	public static Direction[][] spreadPathfindingMapMarsSwarm;
@@ -36,6 +36,10 @@ public class Player {
 	//make maplocation dootadoot for saving locations, checking if things get stuck and such
 	public static HashMap<Integer, MapLocation> robotChecker = new HashMap<Integer, MapLocation>();
 
+	// production chances
+	public static int knightFactoryEarlyChance;
+	public static int rangerFactoryEarlyChance;
+	public static int mageFactoryEarlyChance;
 
 	public static void main(String[] args) {
 
@@ -47,7 +51,7 @@ public class Player {
 		earthMap = gc.startingMap(Planet.Earth);
 		marsMap = gc.startingMap(Planet.Mars);
 		thisMap = gc.startingMap(thisPlanet);
-		
+
 		// don't build if on mars
 		if (thisPlanet.equals(Planet.Mars)) {
 			buildTeamSize = 0;
@@ -70,31 +74,6 @@ public class Player {
 		} else {
 			opponentTeam = Team.Blue;
 		}
-
-		// research code
-		gc.queueResearch(UnitType.Worker);
-		//round 25
-		gc.queueResearch(UnitType.Rocket);
-		//round 75
-		gc.queueResearch(UnitType.Knight);
-		// round 100
-		gc.queueResearch(UnitType.Knight);
-		// round 175
-		gc.queueResearch(UnitType.Ranger);
-		// round 200
-		gc.queueResearch(UnitType.Mage);
-		// round 225
-		gc.queueResearch(UnitType.Knight);
-		// round 325 UNLOCK JAVELIN
-		gc.queueResearch(UnitType.Ranger);
-		// round 425
-		gc.queueResearch(UnitType.Mage);
-		// round 500
-		gc.queueResearch(UnitType.Rocket);
-		// round 600
-		gc.queueResearch(UnitType.Mage);
-		// round 700
-		
 
 		// karbonite finding stuff
 
@@ -132,6 +111,65 @@ public class Player {
 
 
 		}
+
+		// research code
+		gc.queueResearch(UnitType.Worker);
+		// round 25
+		
+		if (h * w <= 1000) {
+			if (h * w <= 500) {
+				knightFactoryEarlyChance = 4;
+				rangerFactoryEarlyChance = 10;
+			} else {
+				knightFactoryEarlyChance = 2;
+				rangerFactoryEarlyChance = 10;
+			}
+			
+			gc.queueResearch(UnitType.Ranger);
+			// round 50
+			gc.queueResearch(UnitType.Knight);
+			// round 75
+			gc.queueResearch(UnitType.Ranger);
+			// round 175
+			gc.queueResearch(UnitType.Knight);
+			// round 250
+			gc.queueResearch(UnitType.Rocket);
+			// round 300
+			gc.queueResearch(UnitType.Mage);
+			// round 325
+			gc.queueResearch(UnitType.Knight);
+			// round 425 JAVELIN UNLOCKED
+			gc.queueResearch(UnitType.Mage);
+			// round 500
+			gc.queueResearch(UnitType.Rocket);
+			//round 600
+			gc.queueResearch(UnitType.Mage);
+			// round 700
+		} else {
+			knightFactoryEarlyChance = 1;
+			rangerFactoryEarlyChance = 10;
+			gc.queueResearch(UnitType.Ranger);
+			// round 50
+			gc.queueResearch(UnitType.Ranger);
+			// round 150
+			gc.queueResearch(UnitType.Knight);
+			// round 175
+			gc.queueResearch(UnitType.Knight);
+			// round 250
+			gc.queueResearch(UnitType.Rocket);
+			// round 300
+			gc.queueResearch(UnitType.Mage);
+			// round 325
+			gc.queueResearch(UnitType.Knight);
+			// round 425 JAVELIN UNLOCKED
+			gc.queueResearch(UnitType.Mage);
+			// round 500
+			gc.queueResearch(UnitType.Rocket);
+			//round 600
+			gc.queueResearch(UnitType.Mage);
+			// round 700
+		}
+		
 
 		while (true) {
 			int roundNum = (int) gc.round();
@@ -205,11 +243,11 @@ public class Player {
 					spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap);
 				}
 			}
-			
+
 			// get troop size and workforce size
 			troopSize = knights.size() + rangers.size() + mages.size();
 			workforceSize = workers.size();
-			
+
 			// worker code
 			// loop through workers
 			if (thisPlanet.equals(Planet.Earth)) {
@@ -385,7 +423,7 @@ public class Player {
 			}
 			counter++;
 		}
-		
+
 	}
 
 	private static void harvestKarbonite(GameController gc, Unit worker, EarthDeposit[][] karboniteAmts) {
@@ -923,7 +961,7 @@ public class Player {
 			// attack closest enemy
 			attackLoc = closestEnemy.location().mapLocation();
 			MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(attackLoc));
-			
+
 			if (thisMap.onMap(moveLoc) && moveLoc.distanceSquaredTo(attackLoc) <= unit.attackRange()) {
 				moveToLoc(gc, unit, moveLoc);
 			}
@@ -1079,12 +1117,12 @@ public class Player {
 					}
 					if ((int) (Math.random() * slowDownRate) == 0) {
 						int random = (int) (Math.random() * 10) + 1;
-						if(gc.round() < 100){
-							if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+						if(gc.round() < 200){
+							if (random <= knightFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
-							} else if (random <= 5 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
+							} else if (random <= rangerFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
-							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
+							} else if (random <= mageFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
 							}
 						}
