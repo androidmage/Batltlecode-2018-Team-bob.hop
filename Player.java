@@ -285,10 +285,11 @@ public class Player {
 				if (!knight.location().isInGarrison() && !knight.location().isInSpace()) {
 					MapLocation myLoc = knight.location().mapLocation();
 					if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
-						MapLocation rocketLoc = rockets.get(0).location().mapLocation();
+						Unit rocket = rockets.get(0);
+						MapLocation rocketLoc = rocket.location().mapLocation();
 						if (myLoc.isAdjacentTo(rocketLoc)) {
 							goingToMars = true;
-						} else if (myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) {
+						} else if ((myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) && rocket.health() == rocket.maxHealth()) {
 							moveToLoc(gc, knight, rocketLoc);
 						}
 					}
@@ -889,10 +890,10 @@ public class Player {
 		boolean doRocketStuff = false;
 
 		if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
+			Unit rocket = rockets.get(0);
+			MapLocation rocketLoc = rocket.location().mapLocation();
 
-			MapLocation rocketLoc = rockets.get(0).location().mapLocation();
-
-			if (!myLoc.isAdjacentTo(rocketLoc)) {
+			if (!myLoc.isAdjacentTo(rocketLoc) && rocket.health() == rocket.maxHealth()) {
 				doRocketStuff = true;
 				if (myLoc.distanceSquaredTo(rocketLoc) < 64 || count < 2) {
 					moveToLoc(gc, unit, rocketLoc);
