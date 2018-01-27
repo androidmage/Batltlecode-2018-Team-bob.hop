@@ -21,7 +21,8 @@ public class Player {
 	public static int buildTeamSize;
 	public static long totalKarboniteAmount;
 	public static MapLocation buildLoc = null;
-	
+	public static MapLocation startLoc = null;
+
 	// size adaption variables
 	public static int troopSize;
 	public static int workforceSize;
@@ -120,7 +121,7 @@ public class Player {
 		// research code
 		gc.queueResearch(UnitType.Worker);
 		// round 25
-		
+
 		if (h * w <= 1000) {
 			if (h * w <= 500) {
 				minFactorySize = 2;
@@ -133,7 +134,7 @@ public class Player {
 				knightFactoryEarlyChance = 2;
 				rangerFactoryEarlyChance = 10;
 			}
-			
+
 			gc.queueResearch(UnitType.Ranger);
 			// round 50
 			gc.queueResearch(UnitType.Knight);
@@ -144,16 +145,20 @@ public class Player {
 			// round 225
 			gc.queueResearch(UnitType.Knight);
 			// round 300
-			gc.queueResearch(UnitType.Mage);
+			gc.queueResearch(UnitType.Healer);
 			// round 325
+			gc.queueResearch(UnitType.Healer);
+			// round 425
 			gc.queueResearch(UnitType.Knight);
-			// round 425 JAVELIN UNLOCKED
-			gc.queueResearch(UnitType.Mage);
-			// round 500
+			// round 525 JAVELIN UNLOCKED
 			gc.queueResearch(UnitType.Rocket);
-			//round 600
+			//round 625
 			gc.queueResearch(UnitType.Mage);
-			// round 700
+			// round 650
+			gc.queueResearch(UnitType.Mage);
+			// round 725
+			gc.queueResearch(UnitType.Mage);
+			// round 825
 		} else {
 			minFactorySize = 3;
 			minTroopSwarmSize = 15;
@@ -163,34 +168,38 @@ public class Player {
 			// round 50
 			gc.queueResearch(UnitType.Ranger);
 			// round 150
-			gc.queueResearch(UnitType.Rocket);
-			// round 200
 			gc.queueResearch(UnitType.Knight);
+			// round 175
+			gc.queueResearch(UnitType.Rocket);
 			// round 225
+			gc.queueResearch(UnitType.Healer);
+			// round 250
+			gc.queueResearch(UnitType.Healer);
+			// round 350
 			gc.queueResearch(UnitType.Knight);
-			// round 300
-			gc.queueResearch(UnitType.Mage);
-			// round 325
+			// round 425
 			gc.queueResearch(UnitType.Knight);
-			// round 425 JAVELIN UNLOCKED
-			gc.queueResearch(UnitType.Mage);
-			// round 500
+			// round 525 JAVELIN UNLOCKED
 			gc.queueResearch(UnitType.Rocket);
-			//round 600
+			//round 625
 			gc.queueResearch(UnitType.Mage);
-			// round 700
+			// round 650
+			gc.queueResearch(UnitType.Mage);
+			// round 725
+			gc.queueResearch(UnitType.Mage);
+			// round 825
 		}
-		
+
 
 		while (true) {
 			int roundNum = (int) gc.round();
-			System.out.println("Current round: "+roundNum);
+			//System.out.println("Current round: "+roundNum);
 			// VecUnit is a class that you can think of as similar to ArrayList<Unit>, but immutable.
 			VecUnit units = gc.myUnits();
 			// set initial base
 			if (roundNum < 10 && buildLoc == null && units.size() != 0) {
-				MapLocation initialLoc = units.get(0).location().mapLocation();
-				buildLoc = findOpenAdjacentSpot(gc, initialLoc);
+				startLoc = units.get(0).location().mapLocation();
+				buildLoc = findOpenAdjacentSpot(gc, startLoc);
 				spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap);
 			}
 			ArrayList<Unit> workers = new ArrayList<Unit>();
@@ -413,10 +422,10 @@ public class Player {
 		}
 	}
 
-	private static void runAwayWorker(GameController gc, Unit worker, VecUnit enemies) {
+	private static void runAwayWorker(GameController gc, Unit unit, VecUnit enemies) {
 		boolean hasMoved = false;
 		int counter = 0;
-		MapLocation myLoc = worker.location().mapLocation();
+		MapLocation myLoc = unit.location().mapLocation();
 		while (!hasMoved && counter < enemies.size()) {
 			Unit enemy = enemies.get(counter);
 			MapLocation enemyLoc = enemy.location().mapLocation();
@@ -426,8 +435,8 @@ public class Player {
 					enemy.unitType().equals(UnitType.Mage)) &&
 					dist <= enemy.attackRange()) {
 				MapLocation moveLoc = myLoc.subtract(myLoc.directionTo(enemyLoc));
-				if (thisMap.onMap(moveLoc) && gc.canMove(worker.id(), myLoc.directionTo(moveLoc))) {
-					gc.moveRobot(worker.id(), myLoc.directionTo(moveLoc));
+				if (thisMap.onMap(moveLoc) && gc.canMove(unit.id(), myLoc.directionTo(moveLoc))) {
+					gc.moveRobot(unit.id(), myLoc.directionTo(moveLoc));
 					hasMoved = true;
 				}
 			}
@@ -483,11 +492,10 @@ public class Player {
 
 			if(!harvested && karbLoc != null){
 				if (thisPlanet.equals(Planet.Earth) && playerLocation.distanceSquaredTo(karbLoc) > 10
-						&& (int) (Math.random() * 2) == 0) {
+						&& (Math.random() * 2 == 0)) {
 					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
 					moveAlongBFSPath(gc, worker, karboniteCollectionMap);
 				} else {
-					System.out.println(playerLocation.distanceSquaredTo(karbLoc));
 					moveToLoc(gc, worker, karbLoc);
 				}
 			}
@@ -572,7 +580,7 @@ public class Player {
 		while (!foundOpenSpace && distance < 5) {
 			for (int i = 0; i < directions.length; i++) {
 				MapLocation newLoc = myLoc.addMultiple(directions[i], distance);
-				if (earthMap.onMap(newLoc) && gc.isOccupiable(newLoc) == 1) {
+				if (thisMap.onMap(newLoc) && gc.isOccupiable(newLoc) == 1) {
 					possibleLoc = newLoc;
 					foundOpenSpace = true;
 				}
@@ -750,38 +758,49 @@ public class Player {
 	}
 
 	public static void bounceMove(Unit u, GameController gc){
-		int id = u.id();
-		MapLocation selfLocation = u.location().mapLocation();
-		if(gc.round()%20 == 0){
-			if(robotChecker.get(id) == null){
-				robotChecker.put(id, selfLocation);
+		if (!u.location().isInGarrison() && !u.location().isInSpace()) {
+			MapLocation myLoc = u.location().mapLocation();
+			long dist = -1;
+			if (startLoc != null) {
+				dist = myLoc.distanceSquaredTo(startLoc);
 			}
-			else{
-				if(robotChecker.get(id).distanceSquaredTo(selfLocation) <= 25){
-					robotDirections.put(id, getRandomDiagonalDirection());
+			if (dist >= Math.pow(troopSize / 2 + (thisMap.getHeight() * thisMap.getWidth() / 100), 2) && troopSize < minTroopSwarmSize) {
+				moveToLoc(gc, u, startLoc);
+			} else {
+				int id = u.id();
+				MapLocation selfLocation = u.location().mapLocation();
+				if(gc.round()%20 == 0){
+					if(robotChecker.get(id) == null){
+						robotChecker.put(id, selfLocation);
+					}
+					else{
+						if(robotChecker.get(id).distanceSquaredTo(selfLocation) <= 25){
+							robotDirections.put(id, getRandomDiagonalDirection());
+						}
+					}
 				}
-			}
-		}
 
 
-		Integer currentDir = robotDirections.get(id);
-		if(currentDir == null){
+				Integer currentDir = robotDirections.get(id);
+				if(currentDir == null){
 
-			currentDir = getRandomDiagonalDirection();
-			robotDirections.put(id, currentDir);
-		}
-		if(gc.isMoveReady(id)){
-			if(gc.canMove(id, directions[currentDir]) && shouldMoveTowards(selfLocation, directions[currentDir])){
-				gc.moveRobot(id, directions[currentDir]);
-			}
-			else{
-				if(!moveUnit(gc, id, currentDir, 2, directions)){
-					if(!moveUnit(gc, id, currentDir, 1, directions)){
-						if(!moveUnit(gc, id, currentDir, 3, directions)){
-							Direction moveDir = directions[getNumUp(currentDir, 4)];
-							if(gc.canMove(id, moveDir) && shouldMoveTowards(selfLocation, moveDir)){
-								gc.moveRobot(id, moveDir);
-								robotDirections.put(id, getNumUp(currentDir, 4));
+					currentDir = getRandomDiagonalDirection();
+					robotDirections.put(id, currentDir);
+				}
+				if(gc.isMoveReady(id)){
+					if(gc.canMove(id, directions[currentDir]) && shouldMoveTowards(selfLocation, directions[currentDir])){
+						gc.moveRobot(id, directions[currentDir]);
+					}
+					else{
+						if(!moveUnit(gc, id, currentDir, 2, directions)){
+							if(!moveUnit(gc, id, currentDir, 1, directions)){
+								if(!moveUnit(gc, id, currentDir, 3, directions)){
+									Direction moveDir = directions[getNumUp(currentDir, 4)];
+									if(gc.canMove(id, moveDir) && shouldMoveTowards(selfLocation, moveDir)){
+										gc.moveRobot(id, moveDir);
+										robotDirections.put(id, getNumUp(currentDir, 4));
+									}
+								}
 							}
 						}
 					}
@@ -1053,48 +1072,71 @@ public class Player {
 	}
 
 	private static void runHealer(Unit healer, ArrayList<Unit> rockets, GameController gc, VecUnit units) {
-		if(!healer.location().isInGarrison() &&  !healer.location().isInSpace()){
-			ArrayList<Unit> visibleUnits = new ArrayList<Unit>();
-			MapLocation myLoc = healer.location().mapLocation();
-			for(int j = 0; j < units.size(); j++){
-				Unit unit = units.get(j);
-				if(!unit.location().isInGarrison() &&  !unit.location().isInSpace()){
-					if(healer.visionRange() >= units.get(j).location().mapLocation().distanceSquaredTo(myLoc)){
-						visibleUnits.add(units.get(j));
-					}
-				}
-			}
 
-			if(visibleUnits.size() > 0){
-				boolean seeInjured = false;
-				Unit priority = visibleUnits.get(0);
-				double priorityVal = getHealerVal(priority, myLoc);
-				for(int j = 1; j < visibleUnits.size(); j++){
-					double value = getHealerVal(visibleUnits.get(j), myLoc);
-					if(priorityVal > value){
-						priority = visibleUnits.get(j);
-						priorityVal = value;
-					}
-				}
-				int targetId = priority.id();
-				int healerId = healer.id();
-				if (priority.health() != priority.maxHealth()) {
-					if(gc.canHeal(healerId, targetId)){
-						if(gc.isHealReady(healerId)){
-							gc.heal(healerId, targetId);
+		if(!healer.location().isInGarrison() &&  !healer.location().isInSpace()){
+			MapLocation myLoc = healer.location().mapLocation();
+			int healerId = healer.id();
+
+			if(!unitToRocket(healer, myLoc, rockets, healer.id()%5, gc)){
+				ArrayList<Unit> visibleUnits = new ArrayList<Unit>();
+				for(int j = 0; j < units.size(); j++){
+					Unit unit = units.get(j);
+					if(!(unit.unitType().equals(UnitType.Factory) || unit.unitType().equals(UnitType.Rocket)) && !unit.equals(healer)){
+						if(!unit.location().isInGarrison() &&  !unit.location().isInSpace()){
+							if(healer.visionRange() >= units.get(j).location().mapLocation().distanceSquaredTo(myLoc)){
+
+								visibleUnits.add(units.get(j));
+							}
 						}
 					}
-					else{
-						moveToLoc(gc, healer, priority.location().mapLocation());
+				}
+
+				if(visibleUnits.size() > 0){
+					Unit priority = null;
+					double priorityVal = 9999;
+					for(int j = 0; j < visibleUnits.size(); j++){
+						double value = getHealerVal(visibleUnits.get(j), myLoc);
+						if(priorityVal > value){
+							priority = visibleUnits.get(j);
+							priorityVal = value;
+						}
+					}
+
+					if (priority != null) {
+						MapLocation priorityLoc = priority.location().mapLocation();
+						int targetId = priority.id();
+						if(gc.canHeal(healerId, targetId)){
+							if(gc.isHealReady(healerId)){
+								gc.heal(healerId, targetId);
+							}
+						}
+						if (gc.isMoveReady(healer.id())) {
+							if(swarmLoc != null && (priorityLoc.distanceSquaredTo(swarmLoc) > myLoc.distanceSquaredTo(swarmLoc))){
+								Direction opp = bc.bcDirectionOpposite(myLoc.directionTo(swarmLoc));
+								moveToLoc(gc, healer, myLoc.add(opp));
+							} else if(myLoc.distanceSquaredTo(priorityLoc) > healer.attackRange()){
+								moveToLoc(gc, healer, priorityLoc);
+							}
+						}
+					}
+					if (gc.isMoveReady(healer.id())) {
+						VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, healer.visionRange(), opponentTeam);
+						runAwayWorker(gc, healer, enemies);
+						if(swarmLoc != null && troopSize > minTroopSwarmSize){
+							moveToLoc(gc, healer, swarmLoc);
+						} else {
+							bounceMove(healer, gc);
+						}
 					}
 				}
-			}
-			if (gc.isMoveReady(healer.id())) {
-				if(swarmLoc != null){
-					moveToLoc(gc, healer, swarmLoc);
-				}
-				else{
-					bounceMove(healer, gc);
+
+				if (gc.isMoveReady(healer.id())) {
+					if(swarmLoc != null){
+						moveToLoc(gc, healer, swarmLoc);
+					}
+					else{
+						bounceMove(healer, gc);
+					}
 				}
 			}
 		}
@@ -1126,7 +1168,7 @@ public class Player {
 					}
 					if ((int) (Math.random() * slowDownRate) == 0) {
 						int random = (int) (Math.random() * 10) + 1;
-						if(gc.round() < 200){
+						if(gc.round() < 150){
 							if (random <= knightFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
 							} else if (random <= rangerFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
@@ -1136,11 +1178,11 @@ public class Player {
 							}
 						}
 						else{
-							if (random <= 4 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+							if (random <= 3 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
-							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
+							} else if (random <= 7 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
-							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
+							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
 							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Healer)) {
 								gc.produceRobot(factoryId, UnitType.Healer);
