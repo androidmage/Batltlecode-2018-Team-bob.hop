@@ -27,7 +27,7 @@ public class Player {
 	// pathfinding static variables
 	public static Direction[][] spreadPathfindingMapEarthSwarm;
 	public static Direction[][] spreadPathfindingMapMarsSwarm;
-	private static Direction[][] spreadPathfindingMapEarthRocket;
+	private static Direction[][] spreadPathfindingMapEarthBuildLoc;
 
 	//can make robotDirections a class variable
 	public static HashMap<Integer, Integer> robotDirections = new HashMap<Integer, Integer>();
@@ -142,6 +142,7 @@ public class Player {
 			if (roundNum < 10 && buildLoc == null && units.size() != 0) {
 				MapLocation initialLoc = units.get(0).location().mapLocation();
 				buildLoc = findOpenAdjacentSpot(gc, initialLoc);
+				spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap);
 			}
 			ArrayList<Unit> workers = new ArrayList<Unit>();
 			ArrayList<Unit> factories = new ArrayList<Unit>();
@@ -201,7 +202,7 @@ public class Player {
 			if (buildLoc == null && workers.size() > 0 && !thisPlanet.equals(Planet.Mars)) {
 				buildLoc = findFarAwaySpot(gc, workers.get(0).location().mapLocation());
 				if (buildLoc != null && factories.size() > 1) {
-					spreadPathfindingMapEarthRocket = updatePathfindingMap(buildLoc, earthMap);
+					spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap);
 				}
 			}
 			
@@ -486,7 +487,7 @@ public class Player {
 					if (possibleLoc != null) {
 						buildLoc.setX(possibleLoc.getX());
 						buildLoc.setY(possibleLoc.getY());
-						spreadPathfindingMapEarthRocket = updatePathfindingMap(buildLoc, earthMap);
+						spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap);
 					}
 					// stop building factories
 					if (builtNum == 3 && buildType.equals(UnitType.Factory)) {
@@ -503,7 +504,7 @@ public class Player {
 			// if still building factories, use moveToLoc
 			// if building rockets, use bfs path
 			if (!finishedFactories) {
-				moveToLoc(gc, worker, buildLoc);
+				moveAlongBFSPath(gc, worker);
 			} else {
 				moveAlongBFSPath(gc, worker);
 			}
@@ -641,7 +642,7 @@ public class Player {
 		Direction oppositeDir;
 		if (gc.planet().equals(Planet.Earth)){
 			if (unit.unitType().equals(UnitType.Worker)) {
-				oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthRocket);
+				oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthBuildLoc);
 			} else {
 				oppositeDir = getValueInPathfindingMap(myLoc.getX(), myLoc.getY(), spreadPathfindingMapEarthSwarm);
 			}
