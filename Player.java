@@ -21,8 +21,12 @@ public class Player {
 	public static int buildTeamSize;
 	public static long totalKarboniteAmount;
 	public static MapLocation buildLoc = null;
+	
+	// size adaption variables
 	public static int troopSize;
 	public static int workforceSize;
+	public static int minTroopSwarmSize;
+	public static int minFactorySize;
 
 	// pathfinding static variables
 	public static Direction[][] spreadPathfindingMapEarthSwarm;
@@ -119,9 +123,13 @@ public class Player {
 		
 		if (h * w <= 1000) {
 			if (h * w <= 500) {
+				minFactorySize = 2;
+				minTroopSwarmSize = 10;
 				knightFactoryEarlyChance = 4;
 				rangerFactoryEarlyChance = 10;
 			} else {
+				minFactorySize = 3;
+				minTroopSwarmSize = 13;
 				knightFactoryEarlyChance = 2;
 				rangerFactoryEarlyChance = 10;
 			}
@@ -132,9 +140,9 @@ public class Player {
 			// round 75
 			gc.queueResearch(UnitType.Ranger);
 			// round 175
-			gc.queueResearch(UnitType.Knight);
-			// round 250
 			gc.queueResearch(UnitType.Rocket);
+			// round 225
+			gc.queueResearch(UnitType.Knight);
 			// round 300
 			gc.queueResearch(UnitType.Mage);
 			// round 325
@@ -147,17 +155,19 @@ public class Player {
 			gc.queueResearch(UnitType.Mage);
 			// round 700
 		} else {
+			minFactorySize = 3;
+			minTroopSwarmSize = 15;
 			knightFactoryEarlyChance = 1;
 			rangerFactoryEarlyChance = 10;
 			gc.queueResearch(UnitType.Ranger);
 			// round 50
 			gc.queueResearch(UnitType.Ranger);
 			// round 150
-			gc.queueResearch(UnitType.Knight);
-			// round 175
-			gc.queueResearch(UnitType.Knight);
-			// round 250
 			gc.queueResearch(UnitType.Rocket);
+			// round 200
+			gc.queueResearch(UnitType.Knight);
+			// round 225
+			gc.queueResearch(UnitType.Knight);
 			// round 300
 			gc.queueResearch(UnitType.Mage);
 			// round 325
@@ -261,14 +271,14 @@ public class Player {
 						UnitType buildType = null;
 						int size = 0;
 						boolean areBuilding = true;
-						if (factories.size() < 2 || !finishedFactories) {
+						if (factories.size() < minFactorySize || !finishedFactories) {
 							buildType = UnitType.Factory;
 							size = factories.size();
 						} else if (workers.size() < 5 && gc.isAttackReady(worker.id())
 								&& gc.karbonite() >= 60) {
 							areBuilding = false;
 							produceWorkers(gc, worker);
-						} else if (roundNum > 300 && (rockets.size() == 0 || !finishedRockets)) {
+						} else if (roundNum > 250 && (rockets.size() == 0 || !finishedRockets)) {
 							buildType = UnitType.Rocket;
 							size = rockets.size();
 						} else {
@@ -373,7 +383,7 @@ public class Player {
 						} else if (enemies.size() > 0){
 							// move towards enemy if nearby or go to swarmLoc if enough troops 
 							moveToLoc(gc, knight, attackLoc);
-						} else if (swarmLoc != null && (troopSize > 15 || thisPlanet.equals(Planet.Mars))) {
+						} else if (swarmLoc != null && (troopSize > minTroopSwarmSize || thisPlanet.equals(Planet.Mars))) {
 							moveAlongBFSPath(gc, knight, spreadPathfindingMapEarthSwarm);
 						} else {
 							bounceMove(knight, gc);
@@ -386,8 +396,8 @@ public class Player {
 			runRanger(rangers, rockets, gc);
 
 			// factory code
-			if (roundNum > 300 && gc.karbonite() < 150 && rockets.size() == 0) {
-				if (troopSize < 15 || rockets.size() > 0) {
+			if (roundNum > 250 && gc.karbonite() < 150 && rockets.size() == 0) {
+				if (troopSize < minTroopSwarmSize || rockets.size() > 0) {
 					runFactories(gc, factories, 1);
 				} else if (troopSize < 20) {
 					runFactories(gc, factories, roundNum / 100);
@@ -437,7 +447,7 @@ public class Player {
 		MapLocation playerLocation = worker.location().mapLocation();
 		for(int a = 0; a < w; a++){
 			for(int b = 0; b < h; b++){
-				if(gc.round() > 100 && gc.round()%10 == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
+				if(gc.round() > 100 && gc.round()%20 == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
 					karboniteAmts[a][b].changeCount(gc.karboniteAt(karboniteAmts[a][b].getLoc()));
 				}
 				if(karboniteAmts[a][b].getCount() != 0){
@@ -456,7 +466,7 @@ public class Player {
 		else{
 			boolean harvested = false;
 			MapLocation karbLoc = karboniteAmts[m][n].getLoc();
-			if(karbLoc.equals(worker.location().mapLocation())){
+			if(karbLoc.equals(playerLocation)){
 				if(gc.canHarvest(worker.id(), Direction.Center)){
 					harvested = true;
 					gc.harvest(worker.id(), Direction.Center);
@@ -464,7 +474,7 @@ public class Player {
 				}
 			}
 			if(karbLoc.isAdjacentTo(worker.location().mapLocation())){
-				if(gc.canHarvest(worker.id(), worker.location().mapLocation().directionTo(karbLoc))){
+				if(gc.canHarvest(worker.id(), playerLocation.directionTo(karbLoc))){
 					harvested = true;
 					gc.harvest(worker.id(), worker.location().mapLocation().directionTo(karbLoc));
 					karboniteAmts[m][n].changeCount(gc.karboniteAt(karbLoc));
@@ -472,10 +482,12 @@ public class Player {
 			}
 
 			if(!harvested && karbLoc != null){
-				if (thisPlanet.equals(Planet.Earth) && playerLocation.distanceSquaredTo(karbLoc) > 4) {
+				if (thisPlanet.equals(Planet.Earth) && playerLocation.distanceSquaredTo(karbLoc) > 10
+						&& (int) (Math.random() * 2) == 0) {
 					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
 					moveAlongBFSPath(gc, worker, karboniteCollectionMap);
 				} else {
+					System.out.println(playerLocation.distanceSquaredTo(karbLoc));
 					moveToLoc(gc, worker, karbLoc);
 				}
 			}
@@ -739,8 +751,8 @@ public class Player {
 
 	public static void bounceMove(Unit u, GameController gc){
 		int id = u.id();
+		MapLocation selfLocation = u.location().mapLocation();
 		if(gc.round()%20 == 0){
-			MapLocation selfLocation = u.location().mapLocation();
 			if(robotChecker.get(id) == null){
 				robotChecker.put(id, selfLocation);
 			}
@@ -759,15 +771,16 @@ public class Player {
 			robotDirections.put(id, currentDir);
 		}
 		if(gc.isMoveReady(id)){
-			if(gc.canMove(id, directions[currentDir])){
+			if(gc.canMove(id, directions[currentDir]) && shouldMoveTowards(selfLocation, directions[currentDir])){
 				gc.moveRobot(id, directions[currentDir]);
 			}
 			else{
 				if(!moveUnit(gc, id, currentDir, 2, directions)){
 					if(!moveUnit(gc, id, currentDir, 1, directions)){
 						if(!moveUnit(gc, id, currentDir, 3, directions)){
-							if(gc.canMove(id, directions[getNumUp(currentDir, 4)])){
-								gc.moveRobot(id, directions[getNumUp(currentDir, 4)]);
+							Direction moveDir = directions[getNumUp(currentDir, 4)];
+							if(gc.canMove(id, moveDir) && shouldMoveTowards(selfLocation, moveDir)){
+								gc.moveRobot(id, moveDir);
 								robotDirections.put(id, getNumUp(currentDir, 4));
 							}
 						}
@@ -993,7 +1006,7 @@ public class Player {
 			bounceMove(unit, gc);
 		} else {
 			if (!enemyInRange) {
-				if (troopSize > 15 && swarmLoc != null) {
+				if (troopSize > minTroopSwarmSize && swarmLoc != null) {
 					// move towards swarmLoc if enough troops
 					moveAlongBFSPath(gc, unit, spreadPathfindingMapEarthSwarm);
 				} else {
