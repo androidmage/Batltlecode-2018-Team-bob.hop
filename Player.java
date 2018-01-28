@@ -47,7 +47,7 @@ public class Player {
 	// production chances
 	public static int knightFactoryEarlyChance;
 	public static int rangerFactoryEarlyChance;
-	public static int mageFactoryEarlyChance;
+	public static int healerFactoryEarlyChance;
 
 	// unit ArrayList variables
 	public static ArrayList<Unit> workers = new ArrayList<Unit>();
@@ -138,11 +138,13 @@ public class Player {
 				minTroopSwarmSize = 15;
 				knightFactoryEarlyChance = 5;
 				rangerFactoryEarlyChance = 10;
+				healerFactoryEarlyChance = 10;
 			} else {
 				minFactorySize = 3;
 				minTroopSwarmSize = 18;
 				knightFactoryEarlyChance = 2;
-				rangerFactoryEarlyChance = 10;
+				rangerFactoryEarlyChance = 9;
+				healerFactoryEarlyChance = 10;
 			}
 
 			gc.queueResearch(UnitType.Ranger);
@@ -151,53 +153,46 @@ public class Player {
 			// round 75
 			gc.queueResearch(UnitType.Ranger);
 			// round 175
-			gc.queueResearch(UnitType.Rocket);
-			// round 225
-			gc.queueResearch(UnitType.Knight);
-			// round 300
 			gc.queueResearch(UnitType.Healer);
+			// round 200
+			gc.queueResearch(UnitType.Rocket);
+			// round 250
+			gc.queueResearch(UnitType.Knight);
 			// round 325
 			gc.queueResearch(UnitType.Healer);
 			// round 425
-			gc.queueResearch(UnitType.Knight);
-			// round 525 JAVELIN UNLOCKED
+			gc.queueResearch(UnitType.Healer);
+			// round 525
 			gc.queueResearch(UnitType.Rocket);
 			//round 625
-			gc.queueResearch(UnitType.Mage);
-			// round 650
-			gc.queueResearch(UnitType.Mage);
-			// round 725
-			gc.queueResearch(UnitType.Mage);
-			// round 825
+			gc.queueResearch(UnitType.Knight);
+			// round 725 JAVELIN UNLOCKED
 		} else {
 			minFactorySize = 3;
 			minTroopSwarmSize = 20;
 			knightFactoryEarlyChance = 1;
-			rangerFactoryEarlyChance = 10;
+			rangerFactoryEarlyChance = 8;
+			healerFactoryEarlyChance = 10;
 			gc.queueResearch(UnitType.Ranger);
 			// round 50
 			gc.queueResearch(UnitType.Ranger);
 			// round 150
 			gc.queueResearch(UnitType.Knight);
 			// round 175
-			gc.queueResearch(UnitType.Rocket);
-			// round 225
 			gc.queueResearch(UnitType.Healer);
+			// round 200
+			gc.queueResearch(UnitType.Rocket);
 			// round 250
 			gc.queueResearch(UnitType.Healer);
 			// round 350
 			gc.queueResearch(UnitType.Knight);
 			// round 425
-			gc.queueResearch(UnitType.Knight);
-			// round 525 JAVELIN UNLOCKED
+			gc.queueResearch(UnitType.Healer);
+			// round 525
 			gc.queueResearch(UnitType.Rocket);
 			//round 625
-			gc.queueResearch(UnitType.Mage);
-			// round 650
-			gc.queueResearch(UnitType.Mage);
-			// round 725
-			gc.queueResearch(UnitType.Mage);
-			// round 825
+			gc.queueResearch(UnitType.Knight);
+			// round 725 JAVELIN UNLOCKED
 		}
 
 		OrbitPattern earthPatt = gc.orbitPattern();
@@ -509,7 +504,7 @@ public class Player {
 		MapLocation playerLocation = worker.location().mapLocation();
 		for(int a = 0; a < w; a++){
 			for(int b = 0; b < h; b++){
-				if(gc.round() > 50 && gc.round()%karboniteCheckFrequency == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
+				if(gc.round() >= 5 && gc.round()%karboniteCheckFrequency == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
 					karboniteAmts[a][b].changeCount(gc.karboniteAt(karboniteAmts[a][b].getLoc()));
 				}
 				if(karboniteAmts[a][b].getCount() != 0){
@@ -1272,7 +1267,7 @@ public class Player {
 								gc.produceRobot(factoryId, UnitType.Knight);
 							} else if (random <= rangerFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
-							} else if (random <= mageFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Mage)) {
+							} else if (random <= healerFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
 							}
 						}
@@ -1281,7 +1276,7 @@ public class Player {
 								gc.produceRobot(factoryId, UnitType.Knight);
 							} else if (random <= 7 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
-							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
+							} else if (random <= 7 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
 							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Healer)) {
 								gc.produceRobot(factoryId, UnitType.Healer);
