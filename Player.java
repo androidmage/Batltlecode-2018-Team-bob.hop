@@ -214,6 +214,15 @@ public class Player {
 			if (roundNum == 200) {
 				karboniteCheckFrequency = 25;
 			}
+			if (gc.karbonite() > 400 && minFactorySize < 3) {
+				minFactorySize = 3;
+			}
+			if (gc.karbonite() > 600 && minFactorySize < 4) {
+				minFactorySize = 4;
+			}
+			if (gc.karbonite() > 800 && minFactorySize < 5) {
+				minFactorySize = 5;
+			}
 
 			for (int i = 0; i < units.size(); i++) {
 				Unit unit = units.get(i);
@@ -316,50 +325,61 @@ public class Player {
 			if (thisPlanet.equals(Planet.Earth)) {
 				for (int i = 0; i < workers.size(); i++) {
 					Unit worker = workers.get(i);
-					if (roundNum < 5) {
-						produceWorkers(gc, worker);
-					}
-					if (i % 3 > 0) {
-						UnitType buildType = null;
-						int size = 0;
-						boolean areBuilding = true;
-						if (factories.size() < minFactorySize || !finishedFactories) {
-							buildType = UnitType.Factory;
-							size = factories.size();
-						} else if (workers.size() < 5 && gc.isAttackReady(worker.id())
-								&& gc.karbonite() >= 60) {
-							areBuilding = false;
+					if (!worker.location().isInGarrison() && !worker.location().isInSpace()) {
+						MapLocation myLoc = worker.location().mapLocation();
+						boolean shouldCollect = true;
+						if (roundNum < 5) {
 							produceWorkers(gc, worker);
-						} else if (roundNum > 250 && (rockets.size() == 0 || !finishedRockets)) {
-							buildType = UnitType.Rocket;
-							size = rockets.size();
-						} else {
-							areBuilding = false;
-							harvestKarbonite(gc, worker, karboniteAmts);
 						}
+						if (i % 3 > 0) {
+							UnitType buildType = null;
+							int size = 0;
+							boolean areBuilding = true;
+							if (factories.size() < minFactorySize || !finishedFactories) {
+								buildType = UnitType.Factory;
+								size = factories.size();
+							} else if (workers.size() < 5 && gc.isAttackReady(worker.id())
+									&& gc.karbonite() >= 60) {
+								areBuilding = false;
+								produceWorkers(gc, worker);
+							} else if (roundNum > 250 && (rockets.size() == 0 || !finishedRockets)) {
+								buildType = UnitType.Rocket;
+								size = rockets.size();
+							} else {
+								areBuilding = false;
+//								harvestKarbonite(gc, worker, karboniteAmts);
+							}
 
-						// if building, run build sequences
-						if (areBuilding) {
-							runBuildSequence(gc, worker, buildLoc, buildType, size, h);
-						}
-					} else {
-						if (workers.size() < 4  && gc.isAttackReady(worker.id()) && gc.karbonite() >= 60) {
-							produceWorkers(gc, worker);
-						}
-						else if ((workers.size() < h / 7 || workers.size() < 6) && factories.size() > 1
-								&& gc.isAttackReady(worker.id())
-								&& gc.karbonite() >= 60) {
-							produceWorkers(gc, worker);
-						}
-						else if (rockets.size() > 0 && i % 4 == 2) {
-							MapLocation myLoc = worker.location().mapLocation();
-							MapLocation rocketLoc = rockets.get(0).location().mapLocation();
-							if (!myLoc.isAdjacentTo(rocketLoc)) {
-								moveToLoc(gc, worker, rocketLoc);
+							// if building, run build sequences
+							if (areBuilding) {
+								if (myLoc.isAdjacentTo(buildLoc)) {
+									shouldCollect = false;
+								}
+								runBuildSequence(gc, worker, buildLoc, buildType, size, h);
+							}
+						} else {
+							if (workers.size() < 4  && gc.isAttackReady(worker.id()) && gc.karbonite() >= 60) {
+								produceWorkers(gc, worker);
+							}
+							else if ((workers.size() < h / 7 || workers.size() < 6) && factories.size() > 1
+									&& gc.isAttackReady(worker.id())
+									&& gc.karbonite() >= 60) {
+								produceWorkers(gc, worker);
+							}
+							else if (rockets.size() > 0 && i % 4 == 2) {
+								MapLocation rocketLoc = rockets.get(0).location().mapLocation();
+								if (!myLoc.isAdjacentTo(rocketLoc)) {
+									moveToLoc(gc, worker, rocketLoc);
+								} else {
+									shouldCollect = false;
+								}
+							}
+							else {
+//								harvestKarbonite(gc, worker, karboniteAmts);
 							}
 						}
-						else {
-							harvestKarbonite(gc, worker, karboniteAmts);
+						if (shouldCollect) {
+							harvestKarbonite(gc,worker,karboniteAmts);
 						}
 					}
 				}
@@ -448,12 +468,18 @@ public class Player {
 
 			// factory code
 			if (roundNum > 250 && gc.karbonite() < 150 && rockets.size() == 0) {
+				int divideFactor = 100;
+				if (minFactorySize == 4) {
+					divideFactor = 60;
+				} else if (minFactorySize == 5) {
+					divideFactor = 30;
+				}
 				if (troopSize < minTroopSwarmSize - 5 || rockets.size() > 0) {
 					runFactories(gc, factories, 1);
 				} else if (troopSize < 20) {
-					runFactories(gc, factories, roundNum / 100);
+					runFactories(gc, factories, roundNum / divideFactor);
 				} else {
-					runFactories(gc, factories, roundNum / 100 * (troopSize / 10));
+					runFactories(gc, factories, roundNum / divideFactor * (troopSize / 10));
 				}
 			} else {
 				runFactories(gc, factories, 1);
@@ -517,7 +543,7 @@ public class Player {
 			}
 		}
 
-		if(!gotSomething){
+		if(!gotSomething && gc.isMoveReady(worker.id())){
 			bounceMove(worker, gc);
 		}
 		else{
@@ -601,7 +627,7 @@ public class Player {
 						spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap, 10000);
 					}
 					// stop building factories
-					if (builtNum == 3 && buildType.equals(UnitType.Factory)) {
+					if (builtNum == minFactorySize && buildType.equals(UnitType.Factory)) {
 						finishedFactories = true;
 					}
 					// stop building rockets
