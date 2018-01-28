@@ -23,6 +23,7 @@ public class Player {
 	public static MapLocation buildLoc = null;
 	public static MapLocation startLoc = null;
 	public static int karboniteCheckFrequency = 5;
+	public static HashMap<Integer, Integer> rocketLaunch = new HashMap<Integer, Integer>();
 
 	// size adaption variables
 	public static int troopSize;
@@ -47,7 +48,7 @@ public class Player {
 	public static int knightFactoryEarlyChance;
 	public static int rangerFactoryEarlyChance;
 	public static int mageFactoryEarlyChance;
-	
+
 	// unit ArrayList variables
 	public static ArrayList<Unit> workers = new ArrayList<Unit>();
 	public static ArrayList<Unit> factories = new ArrayList<Unit>();
@@ -135,7 +136,7 @@ public class Player {
 			if (h * w <= 500) {
 				minFactorySize = 2;
 				minTroopSwarmSize = 15;
-				knightFactoryEarlyChance = 4;
+				knightFactoryEarlyChance = 5;
 				rangerFactoryEarlyChance = 10;
 			} else {
 				minFactorySize = 3;
@@ -199,6 +200,7 @@ public class Player {
 			// round 825
 		}
 
+		OrbitPattern earthPatt = gc.orbitPattern();
 
 		while (true) {
 			int roundNum = (int) gc.round();
@@ -217,7 +219,7 @@ public class Player {
 			if (roundNum == 200) {
 				karboniteCheckFrequency = 25;
 			}
-			
+
 			for (int i = 0; i < units.size(); i++) {
 				Unit unit = units.get(i);
 
@@ -240,6 +242,42 @@ public class Player {
 						break;
 					case Rocket:
 						rockets.add(unit);
+						if(rocketLaunch.get(unit.id()) == null && unit.structureIsBuilt() == 1){
+							ResearchInfo k = gc.researchInfo();
+
+							int priorityTurn = roundNum;
+							long priorityVal = 1001;
+							long tempVal = 0;
+							long maybeBarrier = -1;
+							long halfPeriod = earthPatt.getPeriod()/2;
+
+							if(k.hasNextInQueue()){
+								if(k.nextInQueue().equals(UnitType.Rocket) && k.getLevel(UnitType.Rocket) == 1){
+									if(k.roundsLeft() < halfPeriod){
+										maybeBarrier = k.roundsLeft();
+									}
+								}
+							}
+							for(int m = 0; m < halfPeriod; m++){
+								if(maybeBarrier != -1 && m >= maybeBarrier){
+									tempVal = -1 * unit.rocketTravelTimeDecrease();
+								}
+								else{
+									tempVal = 0;
+								}
+								long x = earthPatt.duration(m + roundNum);
+								tempVal += x;
+								tempVal += m;
+								tempVal += roundNum;
+								if(tempVal < priorityVal){
+									if(m + roundNum < 750){
+										priorityTurn = m + roundNum;
+										priorityVal = x + m + roundNum;
+									}
+								}
+							}
+							rocketLaunch.put(unit.id(), priorityTurn);
+						}
 						runRocket(gc, unit);
 						break;
 					case Worker:
@@ -287,25 +325,20 @@ public class Player {
 						produceWorkers(gc, worker);
 					}
 					if (i % 3 > 0) {
-						System.out.println(i);
 						UnitType buildType = null;
 						int size = 0;
 						boolean areBuilding = true;
 						if (factories.size() < minFactorySize || !finishedFactories) {
-							System.out.println("Building factory");
 							buildType = UnitType.Factory;
 							size = factories.size();
 						} else if (workers.size() < 5 && gc.isAttackReady(worker.id())
 								&& gc.karbonite() >= 60) {
-							System.out.println("Replicating workers");
 							areBuilding = false;
 							produceWorkers(gc, worker);
 						} else if (roundNum > 250 && (rockets.size() == 0 || !finishedRockets)) {
-							System.out.println("Building rockets");
 							buildType = UnitType.Rocket;
 							size = rockets.size();
 						} else {
-							System.out.println("Harvesting karbonite");
 							areBuilding = false;
 							harvestKarbonite(gc, worker, karboniteAmts);
 						}
@@ -315,19 +348,15 @@ public class Player {
 							runBuildSequence(gc, worker, buildLoc, buildType, size, h);
 						}
 					} else {
-						System.out.println(i);
 						if (workers.size() < 4  && gc.isAttackReady(worker.id()) && gc.karbonite() >= 60) {
-							System.out.println("Replicating worker");
 							produceWorkers(gc, worker);
 						}
 						else if ((workers.size() < h / 7 || workers.size() < 6) && factories.size() > 1
 								&& gc.isAttackReady(worker.id())
 								&& gc.karbonite() >= 60) {
-							System.out.println("Replicating worker");
 							produceWorkers(gc, worker);
 						}
 						else if (rockets.size() > 0 && i % 4 == 2) {
-							System.out.println("Going to rocket");
 							MapLocation myLoc = worker.location().mapLocation();
 							MapLocation rocketLoc = rockets.get(0).location().mapLocation();
 							if (!myLoc.isAdjacentTo(rocketLoc)) {
@@ -335,7 +364,6 @@ public class Player {
 							}
 						}
 						else {
-							System.out.println("Harvesting karbonite");
 							harvestKarbonite(gc, worker, karboniteAmts);
 						}
 					}
@@ -356,20 +384,20 @@ public class Player {
 
 			// knight code
 			for (int i = 0; i < knights.size(); i++) {
-				boolean goingToMars = false;
+				//				boolean goingToMars = false;
 				Unit knight = knights.get(i);
 				if (!knight.location().isInGarrison() && !knight.location().isInSpace()) {
 					MapLocation myLoc = knight.location().mapLocation();
-					if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
-						Unit rocket = rockets.get(0);
-						MapLocation rocketLoc = rocket.location().mapLocation();
-						if (myLoc.isAdjacentTo(rocketLoc)) {
-							goingToMars = true;
-						} else if ((myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) && rocket.health() == rocket.maxHealth()) {
-							moveToLoc(gc, knight, rocketLoc);
-						}
-					}
-					if (!goingToMars) {
+					//					if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
+					//						Unit rocket = rockets.get(0);
+					//						MapLocation rocketLoc = rocket.location().mapLocation();
+					//						if (myLoc.isAdjacentTo(rocketLoc)) {
+					//							goingToMars = true;
+					//						} else if ((myLoc.distanceSquaredTo(rocketLoc) < 64 || i < 2) && rocket.health() == rocket.maxHealth()) {
+					//							moveToLoc(gc, knight, rocketLoc);
+					//						}
+					//					}
+					if (!unitToRocket(knight, myLoc, rockets, i, gc)) {
 						int visionRange = (int) knight.visionRange();
 						VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, visionRange, opponentTeam);
 						MapLocation attackLoc = swarmLoc;
@@ -754,7 +782,7 @@ public class Player {
 			if (startLoc != null) {
 				dist = myLoc.distanceSquaredTo(startLoc);
 			}
-			double safeDistance = Math.pow(troopSize / 2 + (thisMap.getHeight() * thisMap.getWidth() / 100), 2);
+			double safeDistance = Math.pow(troopSize / 2 + (thisMap.getHeight() * thisMap.getWidth() / 133), 2);
 			if (u.unitType().equals(UnitType.Healer)) {
 				safeDistance /= 2;
 			}
@@ -899,10 +927,12 @@ public class Player {
 
 			// decide when to launch rockets
 			findLandLoc(gc);
-			if (gc.canLaunchRocket(rocket.id(), landLoc) && garrison.size() == 8) {
+			Integer x = rocketLaunch.get(rocket.id());
+			if (gc.canLaunchRocket(rocket.id(), landLoc) && garrison.size() == 8 && x != null && (gc.round() >= rocketLaunch.get(rocket.id()) || rocket.health() < rocket.maxHealth())) {
 				gc.launchRocket(rocket.id(), landLoc);
 				landLoc = new MapLocation(Planet.Mars, (int) (Math.random() * marsMap.getWidth()), (int) (Math.random() * marsMap.getHeight()));
-
+			} else if (gc.canLaunchRocket(rocket.id(), landLoc) && gc.round() > 745) {
+				gc.launchRocket(rocket.id(), landLoc);
 			}
 		} else {
 			for (int i = 0; i < garrison.size(); i++) {
@@ -952,8 +982,8 @@ public class Player {
 		if (!thisPlanet.equals(Planet.Mars) && rockets.size() > 0) {
 			Unit rocket = rockets.get(0);
 			MapLocation rocketLoc = rocket.location().mapLocation();
-
-			if (!myLoc.isAdjacentTo(rocketLoc) && rocket.health() == rocket.maxHealth()) {
+			VecUnitID garrison = rocket.structureGarrison();
+			if (!myLoc.isAdjacentTo(rocketLoc) && rocket.health() == rocket.maxHealth() && garrison.size() < 8) {
 				if (myLoc.distanceSquaredTo(rocketLoc) < 64 || count < 2) {
 					doRocketStuff = true;
 					moveToLoc(gc, unit, rocketLoc);
@@ -987,29 +1017,35 @@ public class Player {
 			if (thisMap.onMap(moveLoc) && moveLoc.distanceSquaredTo(attackLoc) <= unit.attackRange()) {
 				moveToLoc(gc, unit, moveLoc);
 			}
-			
+
 			if (unit.unitType().equals(UnitType.Ranger)) {
 				// ranger attack
 				if (unit.rangerIsSniping() == 0) {
-
 					// begin sniping
-					// if closest enemy is far away, begin sniping if possible
-					if (dist >= gc.startingMap(gc.planet()).getWidth() / 2.2) {
-						rangerSnipe(unit, myLoc, gc);
-					} // otherwise attempt standard attack
-					else if (dist <= unit.attackRange()
-							&& !(dist <= unit.rangerCannotAttackRange())
-							&& gc.isAttackReady(unit.id())
-							&& gc.canAttack(unit.id(), closestEnemy.id())) {
-						gc.attack(unit.id(), closestEnemy.id());
+					// if closest enemy is far away, being sniping if possible
+					boolean hasSniped = false;
+//					hasSniped = rangerSnipe(unit, myLoc, gc);
+					// otherwise attempt standard attack
+					if (!hasSniped) {
+						if (dist <= unit.attackRange() && gc.isAttackReady(unit.id())) {
+							if (dist <= unit.rangerCannotAttackRange()) {
+								Unit enemy = findRangerTarget(gc, unit, myLoc);
+								if (enemy != null && gc.canAttack(unit.id(), enemy.id())) {
+									System.out.println("Found new target");
+									gc.attack(unit.id(), enemy.id());
+								}
+							} else if (gc.canAttack(unit.id(), closestEnemy.id())) {
+								System.out.println("Attacked closest");
+								gc.attack(unit.id(), closestEnemy.id());
+							}
+						}
 					}
-
+					// relevant ranger active methods: 
+					// rangerMaxCountdown() - returns the number of ramp-up turns for the active
+					// rangerIsSniping() - returns a short
+					// rangerCountdown() - returns the countdown
+					// abilityRange() abilityCooldown() abilityHeat()
 				}
-				// relevant ranger active methods: 
-				// rangerMaxCountdown() - returns the number of ramp-up turns for the active
-				// rangerIsSniping() - returns a short
-				// rangerCountdown() - returns the countdown
-				// abilityRange() abilityCooldown() abilityHeat()
 			} else {
 				// mage attack
 				if (enemyInRange && gc.isAttackReady(unit.id()) 
@@ -1043,35 +1079,59 @@ public class Player {
 			}
 		}
 	}
+	
+	private static Unit findRangerTarget(GameController gc, Unit ranger, MapLocation myLoc) {
+		System.out.println("Trying new target");
+		VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, ranger.attackRange(), opponentTeam);
+		VecUnit closeEnemies = gc.senseNearbyUnitsByTeam(myLoc, ranger.rangerCannotAttackRange(), opponentTeam);
+		boolean found = false;
+		int counter = 0;
+		Unit target = null;
+		while (!found && counter < enemies.size()) {
+			int innerCounter = 0;
+			boolean tooClose = false;
+			Unit enemy = enemies.get(counter);
+			while (!tooClose && innerCounter < closeEnemies.size()) {
+				Unit closeEnemy = closeEnemies.get(innerCounter);
+				if (enemy.equals(closeEnemy)) {
+					tooClose = true;
+				}
+				innerCounter++;
+			}
+			if (!tooClose) {
+				found = true;
+				target = enemy;
+			}
+			counter++;
+		}
+		return target;
+	}
 
 	// TODO - is there a more efficient way to find enemy factories?
-	private static void rangerSnipe(Unit unit, MapLocation myLoc, GameController gc) {
+	private static boolean rangerSnipe(Unit unit, MapLocation myLoc, GameController gc) {
+		boolean hasSniped = false;
 		if (unit.rangerIsSniping() == 0) {
 
 			ArrayList<Unit> enemyFacs = new ArrayList<Unit>();
 
 
-			VecUnit units = gc.units();
+			VecUnit units = gc.senseNearbyUnitsByType(myLoc, unit.visionRange(), UnitType.Factory);
 
 			for (int x = 0; x < units.size(); x++)
-				if (units.get(x).team().equals(opponentTeam)
-						&& units.get(x).unitType().equals(UnitType.Factory))
+				if (units.get(x).team().equals(opponentTeam))
 					enemyFacs.add(units.get(x));
 
-			if (enemyFacs.isEmpty())
-				return;
-
-			int random = (int) (Math.random() * enemyFacs.size());
-
-			if (!enemyFacs.get(random).location().isInGarrison()
-					&& !enemyFacs.get(random).location().isInSpace()
+			if (enemyFacs.size() > 0 && enemyFacs.get(0).location().isInGarrison()
+					&& !enemyFacs.get(0).location().isInSpace()
 					&& gc.isBeginSnipeReady(unit.id())) {
 				System.out.print("began snipe");
-				gc.beginSnipe(unit.id(), enemyFacs.get(random).location().mapLocation());
+				gc.beginSnipe(unit.id(), enemyFacs.get(0).location().mapLocation());
+				hasSniped = true;
 			}
 		}
+		return hasSniped;
 	}
-	
+
 	private static void runRanger(ArrayList<Unit> rangers, ArrayList<Unit> rockets, GameController gc) {
 		// TODO copy-pasted from mage code
 		for (int i = 0; i < rangers.size(); i++) {
@@ -1151,7 +1211,7 @@ public class Player {
 								moveToLoc(gc, healer, priorityLoc);
 							}
 						}
-						
+
 						if(gc.canHeal(healerId, targetId)){
 							if(gc.isHealReady(healerId)){
 								gc.heal(healerId, targetId);
