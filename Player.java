@@ -200,7 +200,7 @@ public class Player {
 			if (roundNum < 10 && buildLoc == null && units.size() != 0) {
 				startLoc = units.get(0).location().mapLocation();
 				buildLoc = findOpenAdjacentSpot(gc, startLoc);
-				spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap);
+				spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap, 10000);
 			}
 			ArrayList<Unit> workers = new ArrayList<Unit>();
 			ArrayList<Unit> factories = new ArrayList<Unit>();
@@ -241,9 +241,9 @@ public class Player {
 							if (swarmLoc == null) {
 								swarmLoc = enemy.location().mapLocation();
 								if (thisPlanet.equals(Planet.Earth)) {
-									spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap);
+									spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap, 10000);
 								} else {
-									spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap);
+									spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap, 10000);
 								}
 							}
 							if (gc.isMoveReady(unit.id())) {
@@ -260,7 +260,7 @@ public class Player {
 			if (buildLoc == null && workers.size() > 0 && !thisPlanet.equals(Planet.Mars)) {
 				buildLoc = findFarAwaySpot(gc, workers.get(0).location().mapLocation());
 				if (buildLoc != null && factories.size() > 1) {
-					spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap);
+					spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap, 10000);
 				}
 			}
 
@@ -324,7 +324,8 @@ public class Player {
 			} else { // on mars
 				for(int i = 0; i < workers.size(); i++){
 					Unit worker = workers.get(i);
-					if(gc.karbonite() > 200 || workers.size() < 4 && gc.isAttackReady(worker.id())){
+					if((gc.karbonite() > 200 || workers.size() < 4 || gc.round() >= 750)
+							&& gc.isAttackReady(worker.id())){
 						produceWorkers(gc, worker);
 					}
 					if (gc.isMoveReady(worker.id())) {
@@ -380,9 +381,9 @@ public class Player {
 							if (swarmLoc == null && attackLoc != null) {
 								swarmLoc = attackLoc;
 								if (thisPlanet.equals(Planet.Earth)) {
-									spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap);
+									spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap, 10000);
 								} else {
-									spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap);
+									spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap, 10000);
 								}
 							}
 						}
@@ -491,9 +492,9 @@ public class Player {
 			}
 
 			if(!harvested && karbLoc != null && gc.isMoveReady(worker.id())){
-				if (thisPlanet.equals(Planet.Earth) && playerLocation.distanceSquaredTo(karbLoc) > 10
-						&& (Math.random() * 2 == 0)) {
-					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap);
+				int dist = (int) playerLocation.distanceSquaredTo(karbLoc);
+				if (thisPlanet.equals(Planet.Earth) && dist > 10) {
+					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap, dist);
 					moveAlongBFSPath(gc, worker, karboniteCollectionMap);
 				} else {
 					moveToLoc(gc, worker, karbLoc);
@@ -549,7 +550,7 @@ public class Player {
 					if (possibleLoc != null) {
 						buildLoc.setX(possibleLoc.getX());
 						buildLoc.setY(possibleLoc.getY());
-						spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap);
+						spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap, 10000);
 					}
 					// stop building factories
 					if (builtNum == 3 && buildType.equals(UnitType.Factory)) {
@@ -717,7 +718,7 @@ public class Player {
      @param mapToUpdate pathfinding map to update
      @param planetMap map of planet to create pathfinding for
 	 */
-	public static Direction[][] updatePathfindingMap(MapLocation target, PlanetMap planetMap){
+	public static Direction[][] updatePathfindingMap(MapLocation target, PlanetMap planetMap, int maxDist){
 		Direction[][] currentMap;
 		Planet currentPlanet = planetMap.getPlanet();
 
@@ -726,10 +727,12 @@ public class Player {
 		LinkedList<MapLocation> bfsQueue = new LinkedList<MapLocation>();
 		MapLocation tempLocation;
 		MapLocation currentBFSLocation;
+		long dist = 0;
 		bfsQueue.add(target);
-		while (bfsQueue.size() > 0){
+		while (bfsQueue.size() > 0 && dist <= maxDist) {
 			//gets first item in bfsQueue
 			currentBFSLocation = bfsQueue.poll();
+			dist = currentBFSLocation.distanceSquaredTo(target);
 			for (int i = 0; i < 8; i++) {
 				tempLocation = currentBFSLocation.add(directions[i]);
 				//only runs calculations if the added part is actually on the map...
@@ -1016,9 +1019,9 @@ public class Player {
 			if (swarmLoc == null && attackLoc != null) {
 				swarmLoc = attackLoc;
 				if (thisPlanet.equals(Planet.Earth)) {
-					spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap);
+					spreadPathfindingMapEarthSwarm = updatePathfindingMap(swarmLoc, thisMap, 10000);
 				} else {
-					spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap);
+					spreadPathfindingMapMarsSwarm = updatePathfindingMap(swarmLoc, thisMap, 10000);
 				}
 			}
 
