@@ -974,11 +974,26 @@ public class Player {
 			
 			if (unit.unitType().equals(UnitType.Ranger)) {
 				// ranger attack
-				if (dist <= unit.attackRange() && !(dist <= unit.rangerCannotAttackRange())
-						&& gc.isAttackReady(unit.id())
-						&& gc.canAttack(unit.id(), closestEnemy.id())) {
-					gc.attack(unit.id(), closestEnemy.id());
+				if (unit.rangerIsSniping() == 0) {
+
+					// begin sniping
+					// if closest enemy is far away, begin sniping if possible
+					if (dist >= gc.startingMap(gc.planet()).getWidth() / 2.2) {
+						rangerSnipe(unit, myLoc, gc);
+					} // otherwise attempt standard attack
+					else if (dist <= unit.attackRange()
+							&& !(dist <= unit.rangerCannotAttackRange())
+							&& gc.isAttackReady(unit.id())
+							&& gc.canAttack(unit.id(), closestEnemy.id())) {
+						gc.attack(unit.id(), closestEnemy.id());
+					}
+
 				}
+				// relevant ranger active methods: 
+				// rangerMaxCountdown() - returns the number of ramp-up turns for the active
+				// rangerIsSniping() - returns a short
+				// rangerCountdown() - returns the countdown
+				// abilityRange() abilityCooldown() abilityHeat()
 			} else {
 				// mage attack
 				if (enemyInRange && gc.isAttackReady(unit.id()) 
@@ -1013,6 +1028,34 @@ public class Player {
 		}
 	}
 
+	// TODO - is there a more efficient way to find enemy factories?
+	private static void rangerSnipe(Unit unit, MapLocation myLoc, GameController gc) {
+		if (unit.rangerIsSniping() == 0) {
+
+			ArrayList<Unit> enemyFacs = new ArrayList<Unit>();
+
+
+			VecUnit units = gc.units();
+
+			for (int x = 0; x < units.size(); x++)
+				if (units.get(x).team().equals(opponentTeam)
+						&& units.get(x).unitType().equals(UnitType.Factory))
+					enemyFacs.add(units.get(x));
+
+			if (enemyFacs.isEmpty())
+				return;
+
+			int random = (int) (Math.random() * enemyFacs.size());
+
+			if (!enemyFacs.get(random).location().isInGarrison()
+					&& !enemyFacs.get(random).location().isInSpace()
+					&& gc.isBeginSnipeReady(unit.id())) {
+				System.out.print("began snipe");
+				gc.beginSnipe(unit.id(), enemyFacs.get(random).location().mapLocation());
+			}
+		}
+	}
+	
 	private static void runRanger(ArrayList<Unit> rangers, ArrayList<Unit> rockets, GameController gc) {
 		// TODO copy-pasted from mage code
 		for (int i = 0; i < rangers.size(); i++) {
