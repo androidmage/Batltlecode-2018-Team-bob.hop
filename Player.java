@@ -28,7 +28,6 @@ public class Player {
 	public static int workforceSize;
 	public static int minTroopSwarmSize;
 	public static int minFactorySize;
-	public static int rocketTime;
 
 	// pathfinding static variables
 	public static Direction[][] spreadPathfindingMapEarthSwarm;
@@ -125,72 +124,70 @@ public class Player {
 
 		if (h * w <= 1000) {
 			if (h * w <= 500) {
-				rocketTime = 150;
 				minFactorySize = 2;
 				minTroopSwarmSize = 10;
 				knightFactoryEarlyChance = 4;
-				rangerFactoryEarlyChance = 9;
-				mageFactoryEarlyChance = 10;
+				rangerFactoryEarlyChance = 10;
 			} else {
-				rocketTime = 250;
 				minFactorySize = 3;
 				minTroopSwarmSize = 13;
 				knightFactoryEarlyChance = 2;
-				rangerFactoryEarlyChance = 8;
-				mageFactoryEarlyChance = 10;
+				rangerFactoryEarlyChance = 10;
 			}
 
 			gc.queueResearch(UnitType.Ranger);
 			// round 50
 			gc.queueResearch(UnitType.Knight);
 			// round 75
-			gc.queueResearch(UnitType.Mage);
-			// round 100
-			gc.queueResearch(UnitType.Knight);
-			// round 175
 			gc.queueResearch(UnitType.Ranger);
-			// round 275
+			// round 175
 			gc.queueResearch(UnitType.Rocket);
+			// round 225
+			gc.queueResearch(UnitType.Knight);
+			// round 300
+			gc.queueResearch(UnitType.Healer);
 			// round 325
 			gc.queueResearch(UnitType.Healer);
-			// round 350
+			// round 425
 			gc.queueResearch(UnitType.Knight);
-			// round 450 JAVELIN UNLOCKED
+			// round 525 JAVELIN UNLOCKED
+			gc.queueResearch(UnitType.Rocket);
+			//round 625
 			gc.queueResearch(UnitType.Mage);
-			// round 525
-			gc.queueResearch(UnitType.Healer);
-			// round 625
+			// round 650
 			gc.queueResearch(UnitType.Mage);
 			// round 725
+			gc.queueResearch(UnitType.Mage);
+			// round 825
 		} else {
-			rocketTime = 325;
 			minFactorySize = 3;
 			minTroopSwarmSize = 15;
 			knightFactoryEarlyChance = 1;
-			rangerFactoryEarlyChance = 7;
-			mageFactoryEarlyChance = 10;
+			rangerFactoryEarlyChance = 10;
 			gc.queueResearch(UnitType.Ranger);
 			// round 50
-			gc.queueResearch(UnitType.Mage);
-			// round 75
-			gc.queueResearch(UnitType.Knight);
-			// round 100
 			gc.queueResearch(UnitType.Ranger);
-			// round 200
-			gc.queueResearch(UnitType.Mage);
-			// round 275
+			// round 150
+			gc.queueResearch(UnitType.Knight);
+			// round 175
 			gc.queueResearch(UnitType.Rocket);
-			// round 325
+			// round 225
+			gc.queueResearch(UnitType.Healer);
+			// round 250
 			gc.queueResearch(UnitType.Healer);
 			// round 350
-			gc.queueResearch(UnitType.Healer);
-			// round 450
+			gc.queueResearch(UnitType.Knight);
+			// round 425
+			gc.queueResearch(UnitType.Knight);
+			// round 525 JAVELIN UNLOCKED
+			gc.queueResearch(UnitType.Rocket);
+			//round 625
 			gc.queueResearch(UnitType.Mage);
-			// round 550
-			gc.queueResearch(UnitType.Knight);
-			// round 625
-			gc.queueResearch(UnitType.Knight);
-			// round 725 JAVELIN UNLOCKED
+			// round 650
+			gc.queueResearch(UnitType.Mage);
+			// round 725
+			gc.queueResearch(UnitType.Mage);
+			// round 825
 		}
 
 
@@ -290,7 +287,7 @@ public class Player {
 								&& gc.karbonite() >= 60) {
 							areBuilding = false;
 							produceWorkers(gc, worker);
-						} else if (roundNum > rocketTime && (rockets.size() == 0 || !finishedRockets)) {
+						} else if (roundNum > 250 && (rockets.size() == 0 || !finishedRockets)) {
 							buildType = UnitType.Rocket;
 							size = rockets.size();
 						} else {
@@ -409,13 +406,13 @@ public class Player {
 			runRanger(rangers, rockets, gc);
 
 			// factory code
-			if (roundNum > rocketTime && gc.karbonite() < 150 && rockets.size() == 0) {
+			if (roundNum > 250 && gc.karbonite() < 150 && rockets.size() == 0) {
 				if (troopSize < minTroopSwarmSize || rockets.size() > 0) {
 					runFactories(gc, factories, 1);
 				} else if (troopSize < 20) {
-					runFactories(gc, factories, roundNum / 80);
+					runFactories(gc, factories, roundNum / 100);
 				} else {
-					runFactories(gc, factories, roundNum / 80 * (troopSize / 10));
+					runFactories(gc, factories, roundNum / 100 * (troopSize / 10));
 				}
 			} else {
 				runFactories(gc, factories, 1);
@@ -1190,11 +1187,11 @@ public class Player {
 							}
 						}
 						else{
-							if (random <= 2 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
+							if (random <= 3 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
 							} else if (random <= 7 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
-							} else if (random <= 9 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
+							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
 							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Healer)) {
 								gc.produceRobot(factoryId, UnitType.Healer);
