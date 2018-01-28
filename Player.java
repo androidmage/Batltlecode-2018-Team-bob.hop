@@ -46,6 +46,14 @@ public class Player {
 	public static int knightFactoryEarlyChance;
 	public static int rangerFactoryEarlyChance;
 	public static int mageFactoryEarlyChance;
+	
+	// unit ArrayList variables
+	public static ArrayList<Unit> workers = new ArrayList<Unit>();
+	public static ArrayList<Unit> factories = new ArrayList<Unit>();
+	public static ArrayList<Unit> knights = new ArrayList<Unit>();
+	public static ArrayList<Unit> mages = new ArrayList<Unit>();
+	public static ArrayList<Unit> rangers = new ArrayList<Unit>();
+	public static ArrayList<Unit> rockets = new ArrayList<Unit>();
 
 	public static void main(String[] args) {
 
@@ -202,12 +210,7 @@ public class Player {
 				buildLoc = findOpenAdjacentSpot(gc, startLoc);
 				spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap, 10000);
 			}
-			ArrayList<Unit> workers = new ArrayList<Unit>();
-			ArrayList<Unit> factories = new ArrayList<Unit>();
-			ArrayList<Unit> knights = new ArrayList<Unit>();
-			ArrayList<Unit> mages = new ArrayList<Unit>();
-			ArrayList<Unit> rangers = new ArrayList<Unit>();
-			ArrayList<Unit> rockets = new ArrayList<Unit>();
+			
 			for (int i = 0; i < units.size(); i++) {
 				Unit unit = units.get(i);
 
@@ -330,7 +333,6 @@ public class Player {
 					}
 					if (gc.isMoveReady(worker.id())) {
 						harvestKarbonite(gc, worker, karboniteAmts);
-						bounceMove(worker, gc);
 					}
 				}
 			}
@@ -418,6 +420,12 @@ public class Player {
 				runFactories(gc, factories, 1);
 			}
 
+			workers.clear();
+			factories.clear();
+			knights.clear();
+			mages.clear();
+			rangers.clear();
+			rockets.clear();
 			// Submit the actions we've done, and wait for our next turn.
 			gc.nextTurn();
 		}
@@ -457,7 +465,7 @@ public class Player {
 		MapLocation playerLocation = worker.location().mapLocation();
 		for(int a = 0; a < w; a++){
 			for(int b = 0; b < h; b++){
-				if(gc.round() > 100 && gc.round()%20 == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
+				if(gc.round() > 100 && gc.round()%25 == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
 					karboniteAmts[a][b].changeCount(gc.karboniteAt(karboniteAmts[a][b].getLoc()));
 				}
 				if(karboniteAmts[a][b].getCount() != 0){
@@ -521,12 +529,13 @@ public class Player {
 
 	private static void runBuildSequence(GameController gc, Unit worker, MapLocation buildLoc, UnitType buildType, int builtNum, int h) {
 		MapLocation myLoc = worker.location().mapLocation();
+		int id = worker.id();
 		if (myLoc.isAdjacentTo(buildLoc)) {
 			Direction buildDir = myLoc.directionTo(buildLoc);
 			// if no blueprint, then put one there
 			// else if there is a blueprint, work on blueprint
-			if (gc.canBlueprint(worker.id(), buildType, buildDir)) {
-				gc.blueprint(worker.id(), buildType, buildDir);
+			if (gc.canBlueprint(id, buildType, buildDir)) {
+				gc.blueprint(id, buildType, buildDir);
 				if (buildType.equals(UnitType.Factory)) {
 					finishedFactories = false;
 				}
@@ -537,8 +546,8 @@ public class Player {
 				Unit blueprint = gc.senseUnitAtLocation(buildLoc);
 				// if can build blueprint, then do so
 				// if done, then move on to next factory
-				if (gc.canBuild(worker.id(), blueprint.id())) {
-					gc.build(worker.id(), blueprint.id());
+				if (gc.canBuild(id, blueprint.id())) {
+					gc.build(id, blueprint.id());
 				}
 				if (blueprint.health() == blueprint.maxHealth()) {
 					MapLocation possibleLoc = null;
@@ -660,44 +669,6 @@ public class Player {
 			shouldMove = false;
 		}
 		return shouldMove;
-	}
-
-	/**
-	 * Basic tryMove based on direction. assumes move is ready (isMoveReady() waas already checked and returns true
-	 * @param toMove direction to move in
-	 */
-	public static void tryMove(GameController gc, Unit unit, Direction toMove){
-		if (gc.isMoveReady(unit.id())) {
-			//if can move forwards
-			if (gc.canMove(unit.id(), toMove)){
-				gc.moveRobot(unit.id(), toMove);
-			}
-			else{
-				//tests moving one direction right, then one direction left
-				//than a further direction right (total 2) then a further direction left
-				Direction rightRotation = bc.bcDirectionRotateRight(toMove);
-				if (gc.canMove(unit.id(), rightRotation)){
-					gc.moveRobot(unit.id(), rightRotation);
-				}
-				else {
-					Direction leftRotation = bc.bcDirectionRotateLeft(toMove);
-					if (gc.canMove(unit.id(), leftRotation)) {
-						gc.moveRobot(unit.id(), leftRotation);
-					} else {
-						rightRotation = bc.bcDirectionRotateRight(rightRotation);
-						if (gc.canMove(unit.id(), rightRotation)) {
-							gc.moveRobot(unit.id(), rightRotation);
-						} else {
-							leftRotation = bc.bcDirectionRotateLeft(leftRotation);
-							if (gc.canMove(unit.id(), leftRotation)) {
-								gc.moveRobot(unit.id(), leftRotation);
-							} else {
-							}
-						}
-					}
-				}
-			}
-		}
 	}
 
 	public static void moveAlongBFSPath(GameController gc, Unit unit, Direction[][] map){
@@ -891,7 +862,7 @@ public class Player {
 		MapLocation myLoc = worker.location().mapLocation();
 		MapLocation makeLoc = findOpenAdjacentSpot(gc, myLoc);
 		//replicates worker in open direction
-		if(makeLoc != null && gc.karbonite() >= 30 && gc.canReplicate(worker.id(), myLoc.directionTo(makeLoc))) {
+		if(makeLoc != null && gc.karbonite() >= 60 && gc.canReplicate(worker.id(), myLoc.directionTo(makeLoc))) {
 			gc.replicate(worker.id(), myLoc.directionTo(makeLoc));
 		}
 	}
