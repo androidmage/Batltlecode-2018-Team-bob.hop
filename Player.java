@@ -1199,7 +1199,7 @@ public class Player {
 				ArrayList<Unit> visibleUnits = new ArrayList<Unit>();
 				for(int j = 0; j < units.size(); j++){
 					Unit unit = units.get(j);
-					if(!(unit.unitType().equals(UnitType.Rocket)) && !unit.equals(healer)){
+					if(!unit.unitType().equals(UnitType.Rocket) && !unit.unitType().equals(UnitType.Factory) && !unit.equals(healer)){
 						if(!unit.location().isInGarrison() &&  !unit.location().isInSpace()){
 							if(healer.visionRange() >= units.get(j).location().mapLocation().distanceSquaredTo(myLoc)){
 
@@ -1238,8 +1238,7 @@ public class Player {
 								gc.heal(healerId, targetId);
 							}
 						}
-					}
-					if (gc.isMoveReady(healer.id())) {
+					} else if (gc.isMoveReady(healer.id())) {
 						VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, healer.visionRange(), opponentTeam);
 						runAwayWorker(gc, healer, enemies);
 						if(swarmLoc != null && troopSize > minTroopSwarmSize){
@@ -1248,10 +1247,8 @@ public class Player {
 							bounceMove(healer, gc);
 						}
 					}
-				}
-
-				if (gc.isMoveReady(healer.id())) {
-					if(swarmLoc != null){
+				} else if (gc.isMoveReady(healer.id())) {
+					if(swarmLoc != null && troopSize > minTroopSwarmSize){
 						moveToLoc(gc, healer, swarmLoc);
 					}
 					else{
@@ -1294,15 +1291,15 @@ public class Player {
 							} else if (random <= rangerFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
 							} else if (random <= healerFactoryEarlyChance && gc.canProduceRobot(factoryId, UnitType.Mage)) {
-								gc.produceRobot(factoryId, UnitType.Mage);
+								gc.produceRobot(factoryId, UnitType.Healer);
 							}
 						}
 						else{
 							if (random <= 3 && gc.canProduceRobot(factoryId, UnitType.Knight)) {
 								gc.produceRobot(factoryId, UnitType.Knight);
-							} else if (random <= 7 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
+							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Ranger)) {
 								gc.produceRobot(factoryId, UnitType.Ranger);
-							} else if (random <= 7 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
+							} else if (random <= 8 && gc.canProduceRobot(factoryId, UnitType.Mage)) {
 								gc.produceRobot(factoryId, UnitType.Mage);
 							} else if (random <= 10 && gc.canProduceRobot(factoryId, UnitType.Healer)) {
 								gc.produceRobot(factoryId, UnitType.Healer);
