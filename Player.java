@@ -22,6 +22,7 @@ public class Player {
 	public static long totalKarboniteAmount;
 	public static MapLocation buildLoc = null;
 	public static MapLocation startLoc = null;
+	public static int karboniteCheckFrequency = 5;
 
 	// size adaption variables
 	public static int troopSize;
@@ -133,12 +134,12 @@ public class Player {
 		if (h * w <= 1000) {
 			if (h * w <= 500) {
 				minFactorySize = 2;
-				minTroopSwarmSize = 10;
+				minTroopSwarmSize = 15;
 				knightFactoryEarlyChance = 4;
 				rangerFactoryEarlyChance = 10;
 			} else {
 				minFactorySize = 3;
-				minTroopSwarmSize = 13;
+				minTroopSwarmSize = 18;
 				knightFactoryEarlyChance = 2;
 				rangerFactoryEarlyChance = 10;
 			}
@@ -169,7 +170,7 @@ public class Player {
 			// round 825
 		} else {
 			minFactorySize = 3;
-			minTroopSwarmSize = 15;
+			minTroopSwarmSize = 20;
 			knightFactoryEarlyChance = 1;
 			rangerFactoryEarlyChance = 10;
 			gc.queueResearch(UnitType.Ranger);
@@ -201,7 +202,7 @@ public class Player {
 
 		while (true) {
 			int roundNum = (int) gc.round();
-			//System.out.println("Current round: "+roundNum);
+			System.out.println("Current round: "+roundNum);
 			// VecUnit is a class that you can think of as similar to ArrayList<Unit>, but immutable.
 			VecUnit units = gc.myUnits();
 			// set initial base
@@ -209,6 +210,12 @@ public class Player {
 				startLoc = units.get(0).location().mapLocation();
 				buildLoc = findOpenAdjacentSpot(gc, startLoc);
 				spreadPathfindingMapEarthBuildLoc = updatePathfindingMap(buildLoc, earthMap, 10000);
+			}
+			if (roundNum == 100) {
+				karboniteCheckFrequency = 10;
+			}
+			if (roundNum == 200) {
+				karboniteCheckFrequency = 25;
 			}
 			
 			for (int i = 0; i < units.size(); i++) {
@@ -280,23 +287,27 @@ public class Player {
 						produceWorkers(gc, worker);
 					}
 					if (i % 3 > 0) {
+						System.out.println(i);
 						UnitType buildType = null;
 						int size = 0;
 						boolean areBuilding = true;
 						if (factories.size() < minFactorySize || !finishedFactories) {
+							System.out.println("Building factory");
 							buildType = UnitType.Factory;
 							size = factories.size();
 						} else if (workers.size() < 5 && gc.isAttackReady(worker.id())
 								&& gc.karbonite() >= 60) {
+							System.out.println("Replicating workers");
 							areBuilding = false;
 							produceWorkers(gc, worker);
 						} else if (roundNum > 250 && (rockets.size() == 0 || !finishedRockets)) {
+							System.out.println("Building rockets");
 							buildType = UnitType.Rocket;
 							size = rockets.size();
 						} else {
+							System.out.println("Harvesting karbonite");
 							areBuilding = false;
 							harvestKarbonite(gc, worker, karboniteAmts);
-							bounceMove(worker, gc);
 						}
 
 						// if building, run build sequences
@@ -304,15 +315,19 @@ public class Player {
 							runBuildSequence(gc, worker, buildLoc, buildType, size, h);
 						}
 					} else {
+						System.out.println(i);
 						if (workers.size() < 4  && gc.isAttackReady(worker.id()) && gc.karbonite() >= 60) {
+							System.out.println("Replicating worker");
 							produceWorkers(gc, worker);
 						}
-						else if ((workers.size() < h / 7 || workers.size() < 7) && factories.size() > 1
+						else if ((workers.size() < h / 7 || workers.size() < 6) && factories.size() > 1
 								&& gc.isAttackReady(worker.id())
 								&& gc.karbonite() >= 60) {
+							System.out.println("Replicating worker");
 							produceWorkers(gc, worker);
 						}
 						else if (rockets.size() > 0 && i % 4 == 2) {
+							System.out.println("Going to rocket");
 							MapLocation myLoc = worker.location().mapLocation();
 							MapLocation rocketLoc = rockets.get(0).location().mapLocation();
 							if (!myLoc.isAdjacentTo(rocketLoc)) {
@@ -320,6 +335,7 @@ public class Player {
 							}
 						}
 						else {
+							System.out.println("Harvesting karbonite");
 							harvestKarbonite(gc, worker, karboniteAmts);
 						}
 					}
@@ -409,7 +425,7 @@ public class Player {
 
 			// factory code
 			if (roundNum > 250 && gc.karbonite() < 150 && rockets.size() == 0) {
-				if (troopSize < minTroopSwarmSize || rockets.size() > 0) {
+				if (troopSize < minTroopSwarmSize - 5 || rockets.size() > 0) {
 					runFactories(gc, factories, 1);
 				} else if (troopSize < 20) {
 					runFactories(gc, factories, roundNum / 100);
@@ -465,7 +481,7 @@ public class Player {
 		MapLocation playerLocation = worker.location().mapLocation();
 		for(int a = 0; a < w; a++){
 			for(int b = 0; b < h; b++){
-				if(gc.round() > 100 && gc.round()%25 == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
+				if(gc.round() > 50 && gc.round()%karboniteCheckFrequency == 0 && gc.canSenseLocation(karboniteAmts[a][b].getLoc())){
 					karboniteAmts[a][b].changeCount(gc.karboniteAt(karboniteAmts[a][b].getLoc()));
 				}
 				if(karboniteAmts[a][b].getCount() != 0){
@@ -501,7 +517,7 @@ public class Player {
 
 			if(!harvested && karbLoc != null && gc.isMoveReady(worker.id())){
 				int dist = (int) playerLocation.distanceSquaredTo(karbLoc);
-				if (thisPlanet.equals(Planet.Earth) && dist > 10) {
+				if (thisPlanet.equals(Planet.Earth) && dist > 10 && gc.round() < 300) {
 					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap, dist);
 					moveAlongBFSPath(gc, worker, karboniteCollectionMap);
 				} else {
