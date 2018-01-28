@@ -185,9 +185,9 @@ public class Player {
 			// round 250
 			gc.queueResearch(UnitType.Healer);
 			// round 350
-			gc.queueResearch(UnitType.Knight);
-			// round 425
 			gc.queueResearch(UnitType.Healer);
+			// round 450
+			gc.queueResearch(UnitType.Knight);
 			// round 525
 			gc.queueResearch(UnitType.Rocket);
 			//round 625
@@ -566,7 +566,7 @@ public class Player {
 
 			if(!harvested && karbLoc != null && gc.isMoveReady(worker.id())){
 				int dist = (int) playerLocation.distanceSquaredTo(karbLoc);
-				if (thisPlanet.equals(Planet.Earth) && dist > 10 && gc.round() < 300) {
+				if (thisPlanet.equals(Planet.Earth) && dist > 10 && gc.round() < 200) {
 					karboniteCollectionMap = updatePathfindingMap(karbLoc, thisMap, dist);
 					moveAlongBFSPath(gc, worker, karboniteCollectionMap);
 				} else {
@@ -1052,11 +1052,9 @@ public class Player {
 							if (dist <= unit.rangerCannotAttackRange()) {
 								Unit enemy = findRangerTarget(gc, unit, myLoc);
 								if (enemy != null && gc.canAttack(unit.id(), enemy.id())) {
-									System.out.println("Found new target");
 									gc.attack(unit.id(), enemy.id());
 								}
 							} else if (gc.canAttack(unit.id(), closestEnemy.id())) {
-								System.out.println("Attacked closest");
 								gc.attack(unit.id(), closestEnemy.id());
 							}
 						}
@@ -1102,7 +1100,6 @@ public class Player {
 	}
 	
 	private static Unit findRangerTarget(GameController gc, Unit ranger, MapLocation myLoc) {
-		System.out.println("Trying new target");
 		VecUnit enemies = gc.senseNearbyUnitsByTeam(myLoc, ranger.attackRange(), opponentTeam);
 		VecUnit closeEnemies = gc.senseNearbyUnitsByTeam(myLoc, ranger.rangerCannotAttackRange(), opponentTeam);
 		boolean found = false;
@@ -1196,18 +1193,44 @@ public class Player {
 			int healerId = healer.id();
 
 			if(!unitToRocket(healer, myLoc, rockets, healer.id()%5, gc)){
+				// leon code
+				boolean specialReady = (healer.isAbilityUnlocked()==1) && (healer.abilityHeat() == 0);
+				ArrayList<Unit> specialVisibleUnits = new ArrayList<Unit>();
 				ArrayList<Unit> visibleUnits = new ArrayList<Unit>();
 				for(int j = 0; j < units.size(); j++){
 					Unit unit = units.get(j);
 					if(!unit.unitType().equals(UnitType.Rocket) && !unit.unitType().equals(UnitType.Factory) && !unit.equals(healer)){
 						if(!unit.location().isInGarrison() &&  !unit.location().isInSpace()){
-							if(healer.visionRange() >= units.get(j).location().mapLocation().distanceSquaredTo(myLoc)){
-
-								visibleUnits.add(units.get(j));
+							double dist = units.get(j).location().mapLocation().distanceSquaredTo(myLoc);
+							if(healer.visionRange() >= dist){
+								if(specialReady && !unit.unitType().equals(UnitType.Healer) && healer.abilityRange() >= dist){
+									specialVisibleUnits.add(unit);
+								}
+								visibleUnits.add(unit);
 							}
 						}
 					}
 				}
+				if(specialReady){
+					if(specialVisibleUnits.size()>0){
+						Unit priority = specialVisibleUnits.get(0);
+						double priorityVal = getOverchargeVal(priority);
+						for(int i = 1; i < specialVisibleUnits.size(); i++){
+							double temp = getOverchargeVal(specialVisibleUnits.get(i));
+							if(temp > priorityVal){
+								priorityVal = temp;
+								priority = specialVisibleUnits.get(i);
+							}
+						}
+						int unitId = priority.id();
+						if(gc.isOverchargeReady(healerId) && gc.canOvercharge(healerId, unitId)){
+							gc.overcharge(healerId, unitId);
+							System.out.println("overcharge");
+						}
+					}
+				}
+				
+				// rest of code
 
 				Unit priority = null;
 				if(visibleUnits.size() > 0){
@@ -1257,6 +1280,21 @@ public class Player {
 				}
 			}
 		}
+	}
+	
+	private static double getOverchargeVal(Unit u){
+		double i = 0;
+		if(u.isAbilityUnlocked() == 1){
+			double x = 1;
+			x *= u.abilityHeat();
+			x /= u.abilityCooldown();
+			i += 2 * x;
+		}
+		double x = 1;
+		x *= u.movementHeat() * u.attackHeat();
+		x /= u.movementCooldown();
+		x /= u.attackCooldown();
+		return x + i;
 	}
 
 	private static double getHealerVal(Unit u, MapLocation healerLoc){
