@@ -1,3 +1,2 @@
-# Pie-Baking-Contest
-# We have an intense pie making contest at MIT this January. This github repository is where we update our most recent recipes.
-# Don't try these at home
+# Battlecode 2018 Team bob.hop();
+# This github contains all of our code for MIT's Battlecode competition in January of 2018
